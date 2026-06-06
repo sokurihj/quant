@@ -1,5 +1,5 @@
 """
-무한매수법 V4.0 수동 매매 보조 도구
+Quant 수동 매매 보조 도구
 
 사용법:
   python trade.py status                         현황 조회
@@ -176,7 +176,7 @@ def cmd_reset(sm: StateManager, symbol: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='무한매수법 V4.0 수동 매매 보조',
+        description='Quant 수동 매매 보조',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

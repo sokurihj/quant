@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-미국 레버리지 ETF(TQQQ, SOXL) 전용 **무한매수법 V4.0** 수동 매매 보조 계산기.  
+미국 레버리지 ETF(TQQQ, SOXL) 전용 **분할매수 전략** 수동 매매 보조 계산기.  
 수동으로 매매 체결 후 기록하면 T값·별지점·지정가매도 목표가를 자동 계산한다.
 
 ## 실행 방법
