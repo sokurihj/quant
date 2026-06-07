@@ -13,22 +13,22 @@ function StatusBar({ s }: { s: SymbolState }) {
   const hasPos = s.avg > 0 && s.shares > 0;
   return (
     <div className="bg-card border border-border rounded-lg">
-      <div className="grid grid-cols-4 divide-x divide-border">
-        <div className="p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4">
+        <div className="p-3 border-r border-b sm:border-b-0 border-border">
           <p className="text-xs text-muted-foreground mb-1">평단가</p>
-          <p className="font-mono text-base font-semibold">{hasPos ? fmt(s.avg) : '—'}</p>
+          <p className="font-mono text-sm font-semibold">{hasPos ? fmt(s.avg) : '—'}</p>
         </div>
-        <div className="p-3">
+        <div className="p-3 border-b sm:border-b-0 sm:border-r border-border">
           <p className="text-xs text-muted-foreground mb-1">보유주식</p>
-          <p className="font-mono text-base font-semibold">{hasPos ? `${s.shares.toFixed(4)}주` : '—'}</p>
+          <p className="font-mono text-sm font-semibold">{hasPos ? `${s.shares.toFixed(4)}주` : '—'}</p>
         </div>
-        <div className="p-3">
+        <div className="p-3 border-r border-border">
           <p className="text-xs text-muted-foreground mb-1">총 자본</p>
-          <p className="font-mono text-base font-semibold text-muted-foreground">{fmt(s.total ?? s.rem)}</p>
+          <p className="font-mono text-sm font-semibold text-muted-foreground">{fmt(s.total ?? s.rem)}</p>
         </div>
         <div className="p-3">
           <p className="text-xs text-muted-foreground mb-1">잔여자본</p>
-          <p className="font-mono text-base font-semibold text-muted-foreground">{fmt(s.rem)}</p>
+          <p className="font-mono text-sm font-semibold text-muted-foreground">{fmt(s.rem)}</p>
         </div>
       </div>
       <div className="px-4 py-2 border-t border-border">
