@@ -1,5 +1,4 @@
 import type { Symbol, SymbolState, HistoryEntry, JournalEntry, UndoSnapshot } from './types';
-import { supabase } from './supabase';
 
 const get = <T>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
@@ -10,16 +9,16 @@ const get = <T>(key: string): T | null => {
 const set = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(value));
-  // Supabase에 비동기로 동기화 (fire-and-forget)
-  supabase.from('kv_store').upsert({ key, value }).then(() => {});
+  // API route를 통해 서버 측에서 Supabase에 저장 (fire-and-forget)
+  fetch('/api/kv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) });
 };
 
 // 앱 마운트 시 Supabase → localStorage 동기화
 export const syncFromSupabase = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
-  const { data, error } = await supabase.from('kv_store').select('key, value');
-  if (error) { console.error('[supabase sync error]', error); return; }
-  if (!data) return;
+  const res = await fetch('/api/kv');
+  if (!res.ok) { console.error('[supabase sync error]', await res.text()); return; }
+  const data: { key: string; value: unknown }[] = await res.json();
   for (const row of data) {
     localStorage.setItem(row.key, JSON.stringify(row.value));
   }
