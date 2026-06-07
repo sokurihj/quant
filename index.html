@@ -4,202 +4,224 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: #09090b; color: #f4f4f5;
-  font-family: -apple-system, 'Segoe UI', sans-serif;
-  font-size: 14px; min-height: 100vh; padding: 24px 16px;
-}
-.mono { font-family: 'SF Mono','Fira Code','Consolas',monospace; font-variant-numeric: tabular-nums; }
 
-.wrap { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+:root {
+  --bg:     #050a05;
+  --bg1:    #080e08;
+  --bg2:    #0d140d;
+  --bd:     #162416;
+  --bd2:    #1e341e;
+  --dim:    #1d4a1d;
+  --mid:    #2d6a2d;
+  --green:  #39d353;
+  --white:  #d8ecd8;
+  --gold:   #e8c84a;
+  --red:    #ff4444;
+  --orange: #f08040;
+  --mono:   'JetBrains Mono', monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 13px;
+  min-height: 100vh;
+  padding: 20px 16px;
+}
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.pos  { color: var(--green); }
+.neg  { color: var(--red); }
+
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
 
 /* 헤더 */
-.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.header h1 { font-size: 17px; font-weight: 600; }
-.header h1 em { color: #52525b; font-style: normal; font-size: 13px; font-weight: 400; margin-left: 6px; }
-.tabs { display: flex; gap: 3px; background: #18181b; padding: 3px; border-radius: 9px; }
-.tab { padding: 6px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; color: #71717a; background: transparent; }
-.tab.on { background: #3f3f46; color: #f4f4f5; }
-.tab:hover:not(.on) { color: #d4d4d8; }
+.header { background: var(--bg1); border: 1px solid var(--bd); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 10px; font-weight: 600; color: var(--mid); letter-spacing: 0.22em; text-transform: uppercase; }
+.header h1 em { font-style: normal; color: var(--dim); font-size: 9px; margin-left: 10px; font-weight: 400; }
+.tabs { display: flex; gap: 3px; }
+.tab { padding: 4px 14px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.15em; cursor: pointer; border: 1px solid var(--bd); background: transparent; color: var(--mid); transition: all .1s; text-transform: uppercase; }
+.tab.on { border-color: var(--green); color: var(--green); background: rgba(57,211,83,.08); }
+.tab:hover:not(.on) { color: var(--white); border-color: var(--bd2); }
 
 /* 온보딩 */
-.onboard { background: #18181b; border: 1px solid #3f3f46; border-radius: 14px; padding: 28px; text-align: center; }
-.onboard h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.onboard p  { color: #71717a; font-size: 13px; margin-bottom: 24px; line-height: 1.6; }
+.onboard { background: var(--bg1); border: 1px solid var(--bd); padding: 28px 24px; text-align: center; }
+.onboard h2 { font-size: 10px; font-weight: 700; color: var(--green); letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 10px; }
+.onboard p  { color: var(--mid); font-size: 11px; margin-bottom: 24px; line-height: 1.8; }
 .onboard-form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .ob-field { display: flex; flex-direction: column; gap: 5px; text-align: left; }
-.ob-field label { font-size: 11px; color: #71717a; }
-.ob-field input, .ob-field select {
-  background: #27272a; border: 1px solid #3f3f46; border-radius: 8px;
-  padding: 9px 12px; color: #f4f4f5; font-size: 13px; font-family: inherit;
-  outline: none; width: 160px; transition: border-color .15s;
-}
-.ob-field input:focus, .ob-field select:focus { border-color: #6366f1; }
+.ob-field label { font-size: 9px; color: var(--mid); letter-spacing: 0.2em; text-transform: uppercase; }
+.ob-field input, .ob-field select { background: var(--bg); border: 1px solid var(--bd2); padding: 8px 12px; color: var(--green); font-size: 12px; font-family: var(--mono); outline: none; width: 160px; transition: border-color .1s; }
+.ob-field input:focus, .ob-field select:focus { border-color: var(--green); }
+.ob-field select { color: var(--white); }
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-.btn-start { background: #4f46e5; color: white; border: none; border-radius: 8px; padding: 9px 24px; font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-end; transition: background .15s; }
-.btn-start:hover { background: #6366f1; }
+.btn-start { background: rgba(57,211,83,.1); color: var(--green); border: 1px solid var(--green); padding: 8px 24px; font-size: 10px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; align-self: flex-end; transition: background .1s; }
+.btn-start:hover { background: rgba(57,211,83,.2); }
 
 /* 대시보드 */
-.dashboard { display: flex; flex-direction: column; gap: 14px; }
+.dashboard { display: flex; flex-direction: column; gap: 10px; }
 
 /* 상태 바 */
-.status-bar { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.sb-item { display: flex; flex-direction: column; gap: 2px; }
-.sb-label { font-size: 11px; color: #52525b; }
-.sb-val { font-size: 15px; font-weight: 600; font-family: 'SF Mono','Fira Code',monospace; font-variant-numeric: tabular-nums; }
-.sb-val.up   { color: #34d399; }
-.sb-val.down { color: #f87171; }
-.sb-val.dim  { color: #a1a1aa; }
-.sb-divider { width: 1px; height: 32px; background: #27272a; }
-.progress-wrap { flex: 1; min-width: 100px; }
-.progress-label { display: flex; justify-content: space-between; font-size: 11px; color: #52525b; margin-bottom: 5px; }
-.progress-track { background: #27272a; border-radius: 99px; height: 6px; overflow: hidden; }
-.progress-fill  { height: 100%; background: #6366f1; border-radius: 99px; transition: width .3s; }
-.progress-fill.rev { background: #f87171; }
+.status-bar { background: var(--bg1); border: 1px solid var(--bd); display: grid; grid-template-columns: repeat(4, 1fr) 1.6fr; gap: 0; }
+.sb-item { display: flex; flex-direction: column; gap: 4px; padding: 11px 14px; border-right: 1px solid var(--bd); }
+.sb-divider { display: none; }
+.sb-label { font-size: 9px; color: var(--mid); letter-spacing: 0.18em; text-transform: uppercase; }
+.sb-val { font-size: 14px; font-weight: 600; color: var(--white); font-variant-numeric: tabular-nums; }
+.sb-val.up   { color: var(--green); }
+.sb-val.down { color: var(--red); }
+.sb-val.dim  { color: var(--mid); }
+.progress-wrap { padding: 11px 14px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--mid); }
+.progress-track { background: var(--bg); border: 1px solid var(--bd); height: 4px; overflow: hidden; }
+.progress-fill  { height: 100%; background: var(--green); transition: width .3s; }
+.progress-fill.rev { background: var(--red); }
 
-/* 리버스모드 배너 */
-.rev-banner {
-  background: #1c0a0a; border: 1px solid rgba(248,113,113,.35);
-  border-radius: 12px; padding: 14px 20px;
-  display: none; flex-direction: column; gap: 10px;
-}
+/* 리버스 배너 */
+.rev-banner { background: #080202; border: 1px solid rgba(255,68,68,.25); padding: 12px 16px; display: none; flex-direction: column; gap: 10px; }
 .rev-banner.on { display: flex; }
 .rev-banner-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.rev-title { font-size: 13px; font-weight: 600; color: #f87171; }
-.rev-sub { font-size: 12px; color: #71717a; margin-top: 3px; }
+.rev-title { font-size: 10px; font-weight: 700; color: var(--red); letter-spacing: 0.15em; text-transform: uppercase; }
+.rev-sub { font-size: 10px; color: var(--mid); margin-top: 4px; }
 .rev-exit-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.rev-exit-label { font-size: 11px; color: #52525b; white-space: nowrap; }
-.rev-exit-input {
-  background: #27272a; border: 1px solid #3f3f46; border-radius: 6px;
-  padding: 6px 10px; color: #f4f4f5; font-size: 12px; font-family: 'SF Mono',monospace;
-  outline: none; width: 100px; transition: border-color .15s;
-}
-.rev-exit-input:focus { border-color: #f87171; }
-.rev-exit-msg { font-size: 11px; font-family: 'SF Mono',monospace; }
-.rev-exit-ok { color: #34d399; }
-.rev-exit-no { color: #52525b; }
-.rev-back-btn {
-  display: none; background: #065f46; color: white; border: none; border-radius: 6px;
-  padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s;
-}
-.rev-back-btn:hover { background: #047857; }
+.rev-exit-label { font-size: 9px; color: var(--mid); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.rev-exit-input { background: var(--bg); border: 1px solid rgba(255,68,68,.3); padding: 5px 9px; color: var(--white); font-size: 11px; font-family: var(--mono); outline: none; width: 100px; }
+.rev-exit-input:focus { border-color: var(--red); }
+.rev-exit-msg { font-size: 10px; }
+.rev-exit-ok { color: var(--green); }
+.rev-exit-no { color: var(--dim); }
+.rev-back-btn { display: none; background: rgba(57,211,83,.1); color: var(--green); border: 1px solid var(--green); padding: 5px 12px; font-size: 9px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+.rev-back-btn:hover { background: rgba(57,211,83,.2); }
 
 /* 목표 카드 */
-.targets { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-.tcard { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 14px 16px; }
-.tcard.a { border-color: rgba(99,102,241,.4); }
-.tcard.b { border-color: rgba(52,211,153,.4); }
-.tcard.r { border-color: rgba(248,113,113,.4); }
-.tc-label { font-size: 11px; color: #71717a; margin-bottom: 6px; }
-.tc-val { font-size: 22px; font-weight: 700; font-family: 'SF Mono','Fira Code',monospace; font-variant-numeric: tabular-nums; }
-.tc-val.a   { color: #818cf8; }
-.tc-val.b   { color: #34d399; }
-.tc-val.r   { color: #f87171; }
-.tc-val.neg { color: #f87171; }
-.tc-sub { font-size: 11px; color: #52525b; margin-top: 3px; font-family: 'SF Mono',monospace; }
-.tc-sub.neg { color: #f87171; }
-.tc-buypoint { font-size: 11px; color: #3f3f46; margin-top: 2px; font-family: 'SF Mono',monospace; }
+.targets { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1px solid var(--bd); background: var(--bd); }
+.tcard { background: var(--bg1); padding: 12px 14px; }
+.tcard.a { border-top: 2px solid var(--green); }
+.tcard.b { border-top: 2px solid var(--gold); }
+.tcard.r { border-top: 2px solid var(--red); }
+.tc-label { font-size: 9px; color: var(--mid); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; }
+.tc-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--white); }
+.tc-val.a   { color: var(--green); }
+.tc-val.b   { color: var(--gold); }
+.tc-val.r   { color: var(--red); }
+.tc-val.neg { color: var(--red); }
+.tc-sub { font-size: 10px; color: var(--dim); margin-top: 3px; }
+.tc-sub.neg { color: var(--red); }
+.tc-buypoint { font-size: 9px; color: var(--dim); margin-top: 2px; }
 
-/* LOC 매수 가이드 */
-.loc-guide { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 14px 18px; display: none; flex-direction: column; gap: 10px; }
+/* LOC 가이드 */
+.loc-guide { background: var(--bg1); border: 1px solid var(--bd); padding: 0; display: none; flex-direction: column; gap: 0; }
 .loc-guide.on { display: flex; }
-.loc-guide-title { font-size: 11px; color: #71717a; }
-.loc-guide-title span { color: #a1a1aa; font-weight: 600; }
-.loc-rows { display: flex; flex-direction: column; gap: 7px; }
-.loc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.loc-row-left { display: flex; align-items: center; gap: 8px; }
-.loc-badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
-.loc-badge.star { background: rgba(99,102,241,.2); color: #818cf8; }
-.loc-badge.avg  { background: rgba(161,161,170,.15); color: #a1a1aa; }
-.loc-price { font-family: 'SF Mono',monospace; font-size: 14px; font-weight: 600; color: #f4f4f5; }
-.loc-price-sub { font-size: 11px; color: #52525b; font-family: 'SF Mono',monospace; }
-.loc-amount { font-family: 'SF Mono',monospace; font-size: 13px; color: #34d399; font-weight: 600; white-space: nowrap; }
+.loc-guide-title { font-size: 9px; color: var(--mid); letter-spacing: 0.15em; text-transform: uppercase; padding: 9px 14px; border-bottom: 1px solid var(--bd); background: var(--bg2); }
+.loc-guide-title span { color: var(--white); }
+.loc-rows { display: flex; flex-direction: column; gap: 0; }
+.loc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bd); }
+.loc-row:last-child { border: none; }
+.loc-row-left { display: flex; align-items: center; gap: 10px; }
+.loc-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+.loc-badge.star { background: rgba(57,211,83,.1); color: var(--green); border: 1px solid rgba(57,211,83,.3); }
+.loc-badge.avg  { background: rgba(216,236,216,.05); color: var(--mid); border: 1px solid var(--bd2); }
+.loc-price { font-size: 15px; font-weight: 600; color: var(--white); }
+.loc-price-sub { font-size: 9px; color: var(--dim); margin-top: 2px; }
+.loc-amount { font-size: 12px; color: var(--green); font-weight: 600; white-space: nowrap; }
 
 /* 액션 패널 */
-.action { background: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; }
-.action-tabs { display: flex; border-bottom: 1px solid #27272a; }
-.at { flex: 1; padding: 11px; font-size: 13px; font-weight: 500; text-align: center; cursor: pointer; border: none; background: transparent; color: #71717a; transition: all .15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-.at.on { color: #f4f4f5; border-bottom-color: #6366f1; }
-.at:hover:not(.on) { color: #d4d4d8; }
+.action { background: var(--bg1); border: 1px solid var(--bd); overflow: hidden; }
+.action-tabs { display: flex; border-bottom: 1px solid var(--bd); }
+.at { flex: 1; padding: 9px; font-size: 9px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-align: center; cursor: pointer; border: none; background: transparent; color: var(--dim); transition: all .1s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.at.on { color: var(--green); border-bottom-color: var(--green); background: rgba(57,211,83,.04); }
+.at:hover:not(.on) { color: var(--mid); }
 
-.action-body { padding: 18px 20px; display: none; flex-direction: column; gap: 14px; }
+.action-body { padding: 16px 18px; display: none; flex-direction: column; gap: 14px; }
 .action-body.on { display: flex; }
 
-.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.field label { display: block; font-size: 11px; color: #71717a; margin-bottom: 5px; }
-.field input, .field select {
-  width: 100%; background: #27272a; border: 1px solid #3f3f46; border-radius: 8px;
-  padding: 10px 12px; color: #f4f4f5; font-size: 13px; font-family: 'SF Mono',monospace;
-  outline: none; transition: border-color .15s; appearance: none;
-}
-.field input:focus, .field select:focus { border-color: #6366f1; }
-.hint { font-size: 11px; color: #3f3f46; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--bd); }
+.field { background: var(--bg1); padding: 10px 12px; }
+.field label { display: block; font-size: 9px; color: var(--mid); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
+.field input, .field select { width: 100%; background: var(--bg); border: 1px solid var(--bd2); padding: 8px 10px; color: var(--green); font-size: 13px; font-family: var(--mono); outline: none; transition: border-color .1s; appearance: none; }
+.field input:focus, .field select:focus { border-color: var(--green); }
+.field select { color: var(--white); }
+.hint { font-size: 10px; color: var(--dim); line-height: 1.7; }
 
-.action-btns { display: flex; gap: 8px; }
-.abtn { flex: 1; padding: 11px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; color: white; transition: background .15s; }
-.abtn-primary { background: #4f46e5; }
-.abtn-primary:hover { background: #6366f1; }
-.abtn-warn { background: #92400e; }
-.abtn-warn:hover { background: #b45309; }
-.abtn-green { background: #065f46; }
-.abtn-green:hover { background: #047857; }
-.abtn-ghost { background: #27272a; }
-.abtn-ghost:hover { background: #3f3f46; }
+.action-btns { display: flex; gap: 6px; }
+.abtn { flex: 1; padding: 10px; font-size: 9px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; border: 1px solid; transition: background .1s; }
+.abtn-primary { background: rgba(57,211,83,.1); color: var(--green); border-color: rgba(57,211,83,.4); }
+.abtn-primary:hover { background: rgba(57,211,83,.2); }
+.abtn-warn { background: rgba(240,128,64,.08); color: var(--orange); border-color: rgba(240,128,64,.35); }
+.abtn-warn:hover { background: rgba(240,128,64,.18); }
+.abtn-green { background: rgba(232,200,74,.08); color: var(--gold); border-color: rgba(232,200,74,.35); }
+.abtn-green:hover { background: rgba(232,200,74,.18); }
+.abtn-ghost { background: transparent; color: var(--mid); border-color: var(--bd2); }
+.abtn-ghost:hover { color: var(--white); border-color: var(--mid); }
 
-.sell-auto-note { background: #1c1c1f; border: 1px solid #27272a; border-radius: 8px; padding: 12px 14px; }
-.san-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-.san-label { color: #52525b; }
-.san-val { font-family: 'SF Mono',monospace; color: #a1a1aa; }
+.sell-auto-note { background: var(--bg); border: 1px solid var(--bd); padding: 10px 12px; }
+.san-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.san-label { color: var(--mid); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.san-val { font-family: var(--mono); color: var(--white); }
 
-/* T_delta 선택 */
-.tdelta-label { font-size: 11px; color: #71717a; margin-bottom: 5px; }
-.tdelta-row { display: flex; gap: 6px; }
-.tdelta-btn {
-  flex: 1; padding: 8px 4px; border-radius: 6px; font-size: 12px; font-weight: 500;
-  cursor: pointer; border: 1px solid #3f3f46; background: #27272a; color: #71717a;
-  transition: all .15s; text-align: center;
-}
-.tdelta-btn.on { border-color: #6366f1; background: rgba(99,102,241,.12); color: #818cf8; }
+/* T_delta */
+.tdelta-label { font-size: 9px; color: var(--mid); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
+.tdelta-row { display: flex; gap: 4px; }
+.tdelta-btn { flex: 1; padding: 7px 4px; font-size: 9px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--bd2); background: transparent; color: var(--dim); transition: all .1s; text-align: center; }
+.tdelta-btn.on { border-color: var(--green); background: rgba(57,211,83,.08); color: var(--green); }
 
 /* 히스토리 */
-.hist { background: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; }
-.hist-head { display: flex; justify-content: space-between; align-items: center; padding: 11px 18px; border-bottom: 1px solid #27272a; }
-.hist-head span { font-size: 12px; font-weight: 500; color: #71717a; }
-.hist-head button { font-size: 11px; color: #3f3f46; background: none; border: none; cursor: pointer; }
-.hist-head button:hover { color: #71717a; }
-.hist-list { max-height: 200px; overflow-y: auto; }
-.hist-empty { padding: 18px; text-align: center; font-size: 13px; color: #3f3f46; }
-.hist-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 18px; border-bottom: 1px solid #1f1f22; }
+.hist { background: var(--bg1); border: 1px solid var(--bd); overflow: hidden; }
+.hist-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--bd); background: var(--bg2); }
+.hist-head span { font-size: 9px; font-weight: 700; color: var(--mid); letter-spacing: 0.18em; text-transform: uppercase; }
+.hist-head button { font-size: 9px; color: var(--dim); background: none; border: none; cursor: pointer; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.hist-head button:hover { color: var(--mid); }
+.hist-list { max-height: 180px; overflow-y: auto; }
+.hist-empty { padding: 16px; text-align: center; font-size: 10px; color: var(--dim); letter-spacing: 0.1em; }
+.hist-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 16px; border-bottom: 1px solid var(--bg2); }
 .hist-row:last-child { border: none; }
-.hist-badge { font-size: 11px; font-weight: 600; width: 66px; }
-.hist-badge.buy   { color: #818cf8; }
-.hist-badge.q     { color: #fbbf24; }
-.hist-badge.all   { color: #34d399; }
-.hist-badge.rsell { color: #f87171; }
-.hist-badge.rbuy  { color: #fb923c; }
-.hist-detail { font-family: 'SF Mono',monospace; font-size: 12px; color: #a1a1aa; }
-.hist-meta   { font-family: 'SF Mono',monospace; font-size: 11px; color: #3f3f46; }
+.hist-badge { font-size: 9px; font-weight: 700; width: 56px; letter-spacing: 0.1em; text-transform: uppercase; }
+.hist-badge.buy   { color: var(--green); }
+.hist-badge.q     { color: var(--gold); }
+.hist-badge.all   { color: var(--green); }
+.hist-badge.rsell { color: var(--red); }
+.hist-badge.rbuy  { color: var(--orange); }
+.hist-detail { font-family: var(--mono); font-size: 11px; color: var(--white); }
+.hist-meta   { font-family: var(--mono); font-size: 10px; color: var(--dim); }
 
-.btn-reset { background: none; border: none; font-size: 11px; color: #3f3f46; cursor: pointer; padding: 4px 0; }
-.btn-reset:hover { color: #71717a; }
+.btn-reset { background: none; border: none; font-size: 9px; font-family: var(--mono); color: var(--dim); cursor: pointer; padding: 4px 0; letter-spacing: 0.1em; text-transform: uppercase; }
+.btn-reset:hover { color: var(--mid); }
 
-#reset-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:100; }
-#reset-modal   { background:#18181b; border:1px solid #3f3f46; border-radius:16px; padding:28px 24px; width:320px; display:flex; flex-direction:column; gap:16px; }
-#reset-modal h3 { font-size:16px; color:#f4f4f5; margin:0; }
-#reset-modal p  { font-size:13px; color:#71717a; margin:0; }
+/* 리셋 모달 */
+#reset-overlay { position: fixed; inset: 0; background: rgba(0,4,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+#reset-modal { background: var(--bg1); border: 1px solid var(--bd2); padding: 24px; width: 320px; display: flex; flex-direction: column; gap: 16px; }
+#reset-modal h3 { font-size: 10px; font-weight: 700; color: var(--green); letter-spacing: 0.22em; text-transform: uppercase; margin: 0; }
+#reset-modal p  { font-size: 10px; color: var(--mid); margin: 0; line-height: 1.7; }
 
-.journal-card { background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
-.journal-head { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#71717a; margin-bottom:4px; }
-.journal-head button { background:none; border:none; font-size:11px; color:#52525b; cursor:pointer; padding:0; }
-.journal-head button:hover { color:#ef4444; }
-.journal-meta { font-size: 11px; color: #52525b; margin-bottom: 2px; display:flex; justify-content:space-between; align-items:center; }
-.journal-del  { background:none; border:none; font-size:11px; color:#3f3f46; cursor:pointer; padding:0; }
-.journal-del:hover { color:#ef4444; }
-.journal-row  { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #a1a1aa; }
-.journal-label { color: #52525b; }
-#journal-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+/* 매매일지 */
+.journal-head { display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--mid); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 10px; }
+.journal-head button { background: none; border: none; font-size: 9px; font-family: var(--mono); color: var(--dim); cursor: pointer; letter-spacing: 0.1em; text-transform: uppercase; }
+.journal-head button:hover { color: var(--red); }
+#journal-list { display: flex; flex-direction: column; gap: 0; }
+.journal-item { border: 1px solid var(--bd); margin-bottom: 4px; overflow: hidden; }
+.journal-summary { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; cursor: pointer; user-select: none; gap: 8px; background: var(--bg); }
+.journal-summary:hover { background: var(--bg2); }
+.journal-chevron { font-size: 9px; color: var(--dim); transition: transform .2s; flex-shrink: 0; }
+.journal-item.open .journal-chevron { transform: rotate(180deg); }
+.journal-summary-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.journal-summary-label { font-size: 11px; font-weight: 700; color: var(--green); white-space: nowrap; }
+.journal-summary-meta { font-size: 9px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.journal-summary-profit { font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.journal-detail { display: none; border-top: 1px solid var(--bd); padding: 10px 12px; background: var(--bg1); flex-direction: column; gap: 6px; }
+.journal-item.open .journal-detail { display: flex; }
+.journal-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--white); }
+.journal-label { color: var(--mid); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.journal-del { background: none; border: none; font-size: 9px; font-family: var(--mono); color: var(--dim); cursor: pointer; padding: 4px 0 0; align-self: flex-end; letter-spacing: 0.1em; text-transform: uppercase; }
+.journal-del:hover { color: var(--red); }
+.journal-pager { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 0 2px; }
+.journal-pager button { background: transparent; border: 1px solid var(--bd2); color: var(--mid); font-size: 9px; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 14px; cursor: pointer; }
+.journal-pager button:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+.journal-pager button:disabled { opacity: 0.25; cursor: default; }
+.journal-pager span { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; }
 </style>
 </head>
 <body>
@@ -274,7 +296,7 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     <div class="rev-banner" id="rev-banner">
       <div class="rev-banner-top">
         <div>
-          <div class="rev-title">🔄 리버스모드 진행 중</div>
+          <div class="rev-title">// REVERSE MODE ACTIVE</div>
           <div class="rev-sub" id="rev-day-sub">원금 소진 — 무한매도 + 쿼터매수로 손절 구간 통과</div>
         </div>
         <div class="rev-exit-row">
@@ -486,9 +508,11 @@ const CONF = {
   TQQQ: { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 } },
   SOXL: { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  } },
 };
-let sym         = 'TQQQ';
-let tdelta      = 1.0;
-let nextBuyAmt  = 0;
+let sym              = 'TQQQ';
+let tdelta           = 1.0;
+let nextBuyAmt       = 0;
+let journalPage      = 1;
+const JOURNAL_PG_SZ  = 5;
 
 const ls  = k      => { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; };
 const ss  = (k, v) => localStorage.setItem(k, JSON.stringify(v));
@@ -564,10 +588,10 @@ function updateBuyAmtHint() {
   const qtyStr   = recQty > 0 ? ` ≈ ${recQty}주` : '';
   if (tdelta === 0.5) {
     el.textContent = `권장: ${fmt(recAmt)} (1회매수금 ${fmt(nextBuyAmt)}의 절반)${qtyStr}`;
-    el.style.color = '#818cf8';
+    el.style.color = 'var(--green)';
   } else {
     el.textContent = `권장: ${fmt(recAmt)}${qtyStr}`;
-    el.style.color = '#52525b';
+    el.style.color = 'var(--dim)';
   }
 }
 
@@ -596,7 +620,7 @@ if (!hasState) return;
   $('sb-t').textContent        = `${T.toFixed(2)} / ${div}`;
   $('sb-prog').style.width     = `${pct}%`;
   $('sb-prog').classList.toggle('rev', isReverse);
-  $('sb-mode-label').textContent = isReverse ? '🔄 리버스 진행도' : 'T값 진행도';
+  $('sb-mode-label').textContent = isReverse ? 'REVERSE PROGRESS' : 'T값 진행도';
 
   // 리버스 배너
   $('rev-banner').classList.toggle('on', isReverse);
@@ -614,7 +638,7 @@ if (!hasState) return;
     const qty   = hasPos ? revSellQty(shares, div) : 0;
     const rdAmt = reverseDay > 0 ? rem / 4 : 0;
 
-    $('lbl-byeol').textContent   = '📉 오늘 매도 수량';
+    $('lbl-byeol').textContent   = 'SELL QTY';
     $('tg-byeol').textContent    = hasPos ? `${qty}주` : '—';
     $('tg-byeol').className      = 'tc-val r mono';
     $('tg-byeol-pct').textContent = hasPos ? `보유 ${shares.toFixed(4)}주 ÷ ${div}` : '—';
@@ -622,13 +646,13 @@ if (!hasState) return;
     $('tg-buypoint').textContent = '';
     $('card-byeol').className    = 'tcard r';
 
-    $('lbl-full').textContent    = '📊 리버스 별지점';
+    $('lbl-full').textContent    = 'REV BYEOL';
     $('tg-full').textContent     = '직접 입력';
     $('tg-full').className       = 'tc-val mono';
     $('tg-full-pct').textContent = '5거래일 종가 평균';
     $('card-full').className     = 'tcard';
 
-    $('lbl-next').textContent    = '💵 오늘 매수금액';
+    $('lbl-next').textContent    = 'BUY AMT';
     $('tg-next').textContent     = reverseDay > 0 ? fmt(rdAmt) : '없음 (D1)';
     $('tg-next-sub').textContent = reverseDay > 0 ? `${fmt(rem)} ÷ 4` : '첫날은 매도만';
     $('card-next').className     = 'tcard';
@@ -656,7 +680,7 @@ if (!hasState) return;
       const nb    = nextAmt(rem, div, T);
       const isNeg = bp < 0;
 
-      $('lbl-byeol').textContent    = '🎯 별지점 (쿼터매도 목표)';
+      $('lbl-byeol').textContent    = 'BYEOL  (QUARTER SELL)';
       $('tg-byeol').textContent     = fmt(bpr);
       $('tg-byeol').className       = isNeg ? 'tc-val mono neg' : 'tc-val a mono';
       $('tg-byeol-pct').textContent = `평단 대비 ${bp >= 0 ? '+' : ''}${bp.toFixed(2)}%`;
@@ -664,13 +688,13 @@ if (!hasState) return;
       $('tg-buypoint').textContent  = `매수점: ${fmt(buyPt)} (별지점 −$0.01)`;
       $('card-byeol').className     = isNeg ? 'tcard r' : 'tcard a';
 
-      $('lbl-full').textContent     = '📌 지정가매도 목표 (잔여 ¾)';
+      $('lbl-full').textContent     = 'LIMIT SELL TARGET (¾)';
       $('tg-full').textContent      = fmt(ft);
       $('tg-full').className        = 'tc-val b mono';
       $('tg-full-pct').textContent  = `평단 대비 +${CONF[sym].target_pct}%`;
       $('card-full').className      = 'tcard b';
 
-      $('lbl-next').textContent     = '💵 오늘 매수금액';
+      $('lbl-next').textContent     = 'BUY AMT';
       $('tg-next').textContent      = nb > 0 ? fmt(nb) : '소진';
       $('tg-next-sub').textContent  = nb > 0 ? `${div}분할 ${Math.floor(T) + 1}회차` : '리버스모드 진입 대기';
       $('card-next').className      = 'tcard';
@@ -715,7 +739,7 @@ if (!hasState) return;
       $('loc-guide').classList.add('on');
     } else {
       const nb = rem / div;
-      $('lbl-byeol').textContent    = '🎯 별지점 (쿼터매도 목표)';
+      $('lbl-byeol').textContent    = 'BYEOL  (QUARTER SELL)';
       $('tg-byeol').textContent     = '—';
       $('tg-byeol').className       = 'tc-val a mono';
       $('tg-byeol-pct').textContent = '매수 후 계산됩니다';
@@ -726,7 +750,7 @@ if (!hasState) return;
       $('tg-full').className        = 'tc-val b mono';
       $('tg-full-pct').textContent  = '매수 후 계산됩니다';
       $('card-full').className      = 'tcard b';
-      $('lbl-next').textContent     = '💵 오늘 매수금액';
+      $('lbl-next').textContent     = 'BUY AMT';
       $('tg-next').textContent      = fmt(nb);
       $('tg-next-sub').textContent  = `${fmt(rem)} ÷ ${div}`;
       $('card-next').className      = 'tcard';
@@ -776,12 +800,24 @@ function deleteJournal(idx) {
   const journal = ls(`journal_${sym}`) ?? [];
   journal.splice(idx, 1);
   ss(`journal_${sym}`, journal);
+  const totalPages = Math.ceil(journal.length / JOURNAL_PG_SZ);
+  if (journalPage > totalPages && totalPages > 0) journalPage = totalPages;
   renderJournal();
 }
 
 function clearJournal() {
   if (!confirm('매매일지를 전체 삭제하시겠습니까?')) return;
   ss(`journal_${sym}`, []);
+  journalPage = 1;
+  renderJournal();
+}
+
+function toggleJournal(itemEl) {
+  itemEl.classList.toggle('open');
+}
+
+function setJournalPage(p) {
+  journalPage = p;
   renderJournal();
 }
 
@@ -792,30 +828,51 @@ function renderJournal() {
     el.innerHTML = '<p style="color:#71717a;text-align:center;padding:24px 0;">완료된 사이클이 없습니다.</p>';
     return;
   }
+  const reversed = journal.slice().reverse();
+  const totalPages = Math.ceil(reversed.length / JOURNAL_PG_SZ);
+  const start = (journalPage - 1) * JOURNAL_PG_SZ;
+  const pageItems = reversed.slice(start, start + JOURNAL_PG_SZ);
+
   const head = `<div class="journal-head"><span>매매일지</span><button onclick="clearJournal()">전체 삭제</button></div>`;
-  const cards = journal.slice().reverse().map((j, i) => {
-    const origIdx = journal.length - 1 - i;
+
+  const items = pageItems.map((j, i) => {
+    const origIdx = journal.length - 1 - (start + i);
+    const profitCls = j.profit >= 0 ? 'pos' : 'neg';
+    const profitStr = `${j.profit >= 0 ? '+' : ''}${fmt(j.profit)} (${j.profitPct.toFixed(2)}%)`;
     return `
-    <div class="journal-card">
-      <div class="journal-meta">
-        <span>사이클 ${j.cycle} · ${j.div}분할 · ${j.startDate} ~ ${j.endDate}</span>
+    <div class="journal-item" onclick="toggleJournal(this)">
+      <div class="journal-summary">
+        <div class="journal-summary-left">
+          <span class="journal-summary-label">#${journal.length - (start + i)}</span>
+          <span class="journal-summary-meta">${j.div}분할 · ${j.startDate} ~ ${j.endDate}</span>
+        </div>
+        <span class="journal-summary-profit ${profitCls}">${profitStr}</span>
+        <span class="journal-chevron">▼</span>
+      </div>
+      <div class="journal-detail" onclick="event.stopPropagation()">
+        <div class="journal-row">
+          <span class="journal-label">시작 자본</span><span>${fmt(j.startRem)}</span>
+        </div>
+        <div class="journal-row">
+          <span class="journal-label">종료 자본</span><span>${fmt(j.endRem)}</span>
+        </div>
+        <div class="journal-row">
+          <span class="journal-label">사이클 수익</span>
+          <span class="${profitCls}" style="font-weight:600;">${profitStr}</span>
+        </div>
         <button class="journal-del" onclick="deleteJournal(${origIdx})">삭제</button>
-      </div>
-      <div class="journal-row">
-        <span class="journal-label">시작 자본</span><span>${fmt(j.startRem)}</span>
-      </div>
-      <div class="journal-row">
-        <span class="journal-label">종료 자본</span><span>${fmt(j.endRem)}</span>
-      </div>
-      <div class="journal-row">
-        <span class="journal-label">사이클 수익</span>
-        <span class="${j.profit >= 0 ? 'pos' : 'neg'}" style="font-weight:600;">
-          ${j.profit >= 0 ? '+' : ''}${fmt(j.profit)} (${j.profitPct.toFixed(2)}%)
-        </span>
       </div>
     </div>`;
   }).join('');
-  el.innerHTML = head + cards;
+
+  const pager = totalPages <= 1 ? '' : `
+  <div class="journal-pager">
+    <button onclick="setJournalPage(${journalPage - 1})" ${journalPage <= 1 ? 'disabled' : ''}>◀ 이전</button>
+    <span>${journalPage} / ${totalPages}</span>
+    <button onclick="setJournalPage(${journalPage + 1})" ${journalPage >= totalPages ? 'disabled' : ''}>다음 ▶</button>
+  </div>`;
+
+  el.innerHTML = head + items + pager;
 }
 
 // ── 심볼 / 탭 ──────────────────────────────────────────────────────────────
@@ -834,7 +891,7 @@ function switchTab(name) {
   });
   $(`tab-${name}`).classList.add('on');
   document.querySelectorAll('.at')[['buy','sell','journal','setting'].indexOf(name)].classList.add('on');
-  if (name === 'journal') renderJournal();
+  if (name === 'journal') { journalPage = 1; renderJournal(); }
 }
 
 // ── 초기화 ─────────────────────────────────────────────────────────────────
