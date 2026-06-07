@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName, SymbolState, HistoryEntry, JournalEntry } from '@/lib/types';
 import { defState, bPct, bPrice, ftPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, shouldEnterReverse, fmt, conf } from '@/lib/calc';
-import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot } from '@/lib/storage';
+import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase } from '@/lib/storage';
 
 // ── 서브 컴포넌트 ──────────────────────────────────────────────────────────
 
@@ -178,8 +178,8 @@ function TradeHistory({ sym, onUndo }: { sym: Symbol; onUndo: () => void }) {
   const undoStack = getUndo(sym);
   const label: Record<string, string> = { buy:'매수', quarter:'쿼터매도', all:'전량매도', rsell:'리버스매도', rbuy:'리버스매수' };
   const color: Record<string, string> = {
-    buy: 'text-primary', quarter: 'text-chart-4', all: 'text-chart-1',
-    rsell: 'text-destructive', rbuy: 'text-chart-5',
+    buy: 'text-emerald-500', quarter: 'text-red-500', all: 'text-red-400',
+    rsell: 'text-red-500', rbuy: 'text-emerald-500',
   };
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -311,10 +311,15 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [setCapital, setSetCapital] = useState('');
   const [setDiv, setSetDiv] = useState<20 | 40>(40);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    syncFromSupabase().then(() => setMounted(true));
+  }, []);
+
   const refresh = useCallback(() => setTick(t => t + 1), []);
   // tick은 리렌더 트리거용
   void tick;
-  const s = getState(sym);
+  const s = mounted ? getState(sym) : null;
   const hasPos = !!s && s.avg > 0 && s.shares > 0;
   const isReverse = s?.mode === 'reverse';
 
