@@ -313,7 +313,9 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    syncFromSupabase().then(() => setMounted(true));
+    setMounted(true);
+    // 백그라운드에서 Supabase 동기화 후 리렌더
+    syncFromSupabase().then(() => setTick(t => t + 1));
   }, []);
 
   const refresh = useCallback(() => setTick(t => t + 1), []);
