@@ -10,7 +10,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 실행 방법
 
 ```bash
-# 브라우저 UI (주 사용 방법) — 설치 없이 바로 열기
+# Next.js 앱 (주 사용 방법) — 모바일 접속 가능
+cd app && npm run dev
+# 로컬: http://localhost:3000
+# 모바일(같은 와이파이): http://192.168.x.x:3000
+
+# 레거시 바닐라 UI (서버 없이 열기)
 open index.html
 
 # 터미널 CLI (선택)
@@ -25,15 +30,36 @@ python trade.py init TQQQ 10000 40
 ## 아키텍처
 
 ```
-index.html      ← 브라우저 UI. 계산·상태를 JS로 자체 구현 (localStorage 저장)
-trade.py        ← 터미널 CLI. 아래 Python 모듈을 사용
+app/                    ← Next.js 16 + shadcn UI (주 UI)
+  app/
+    page.tsx            ← 심볼 탭(TQQQ/SOXL) + QuantApp 마운트
+    layout.tsx          ← Merriweather + JetBrains Mono 폰트
+    globals.css         ← shadcn 테마 (warm earthy palette)
+  components/
+    quant-app.tsx       ← "use client" 메인 컴포넌트. 전체 상태·핸들러 보유
+  lib/
+    types.ts            ← TypeScript 타입 (SymbolState, HistoryEntry 등)
+    calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt 등)
+    storage.ts          ← localStorage read/write 유틸 (getState, setHist 등)
 
-calculator.py   ← 순수 계산 함수 (부수효과 없음)
-state.py        ← StateManager: state.json 읽기/쓰기, SymbolState dataclass
-config.py       ← 종목별 파라미터 (SYMBOLS dict)
+index.html              ← 레거시 바닐라 JS UI (localStorage, 서버 불필요)
+trade.py                ← 터미널 CLI
+calculator.py           ← Python 계산 함수
+state.py                ← StateManager: state.json 읽기/쓰기
+config.py               ← 종목별 파라미터 (SYMBOLS dict)
 ```
 
-**주의**: `index.html`(localStorage)과 Python(state.json)은 **상태를 공유하지 않는다.**
+**주의**:
+- `app/`(localStorage)과 Python(state.json)은 **상태를 공유하지 않는다.**
+- `index.html`과 `app/`도 **상태를 공유하지 않는다.** (각자 localStorage 키 사용)
+- Next.js 앱은 전체가 `"use client"` — SSR 없음, localStorage 전용
+
+## Next.js 앱 주요 패턴
+
+- 심볼 전환 시 `<QuantApp key={sym} sym={sym} />` 로 컴포넌트 완전 리마운트
+- localStorage 변경 후 `setTick(t => t + 1)` 으로 리렌더 트리거
+- `JournalTab`은 내부 `useState`로 page·open 상태 독립 관리
+- `TradeHistory`는 렌더 시마다 localStorage에서 직접 읽음 (props 없음)
 
 ## 문서
 기능 추가·변경 시 `docs/README.md` 함께 업데이트
