@@ -355,7 +355,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
     const cur = getState(sym) ?? defState();
     if (amount > cur.rem) return alert(`매수 금액(${fmt(amount)})이 잔여자본(${fmt(cur.rem)})을 초과합니다.`);
     if (nb > 0) {
-      if (recQty > 0 && qty > recQty) return alert(`권장 수량(${recQty}주)을 초과했습니다.`);
+      // 권장 초과 시 차단하지 않음 — UI에서 안내만 표시
     }
     saveSnapshot(sym);
     const s = { ...cur };
@@ -590,6 +590,9 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   권장: {fmt(recAmt)}{recQty > 0 ? ` ≈ ${recQty}주` : ''}
                   {tdelta === 0.5 ? ` (1회매수금 ${fmt(nb)}의 절반)` : ''}
                 </p>
+              )}
+              {recQty > 0 && parseFloat(buyQty) > recQty && (
+                <p className="text-xs text-amber-500">권장 수량({recQty}주)을 초과했습니다. T값이 예상보다 빠르게 증가합니다.</p>
               )}
               <div>
                 <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
