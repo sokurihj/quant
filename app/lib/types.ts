@@ -1,4 +1,4 @@
-export type Symbol = 'TQQQ' | 'SOXL';
+export type Symbol = 'TQQQ' | 'SOXL' | 'HYNIX2X';
 export type Mode = 'normal' | 'reverse';
 export type TabName = 'buy' | 'sell' | 'journal' | 'setting';
 

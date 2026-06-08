@@ -17,7 +17,7 @@ export default function Home() {
             <p className="text-xs text-muted-foreground">레버리지 ETF 계산기</p>
           </div>
           <div className="flex gap-1.5 bg-muted p-1 rounded-lg">
-            {(['TQQQ', 'SOXL'] as Symbol[]).map(s => (
+            {(['TQQQ', 'SOXL', 'HYNIX2X'] as Symbol[]).map(s => (
               <button
                 key={s}
                 onClick={() => setSym(s)}

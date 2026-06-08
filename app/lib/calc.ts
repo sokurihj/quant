@@ -1,8 +1,9 @@
 import type { Symbol, SymbolState } from './types';
 
 const CONF = {
-  TQQQ: { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 } },
-  SOXL: { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  } },
+  TQQQ:    { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'USD', tick: 0.01 },
+  SOXL:    { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  }, currency: 'USD', tick: 0.01 },
+  HYNIX2X: { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'KRW', tick: 5   },
 } as const;
 
 export const conf = (sym: Symbol) => CONF[sym];
@@ -42,5 +43,8 @@ export const defState = (capital = 10000, division: 20 | 40 = 40): SymbolState =
   cycleStartRem: capital, cycleStartDate: null,
 });
 
-export const fmt = (n: number | null | undefined, d = 2): string =>
-  n == null ? '—' : '$' + n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+export const fmt = (n: number | null | undefined, d = 2, currency = 'USD'): string => {
+  if (n == null) return '—';
+  if (currency === 'KRW') return '₩' + Math.round(n).toLocaleString('ko-KR');
+  return '$' + n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
