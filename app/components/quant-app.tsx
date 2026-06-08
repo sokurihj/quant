@@ -179,9 +179,17 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
   );
 }
 
-function TradeHistory({ sym, onUndo }: { sym: Symbol; onUndo: () => void }) {
+function TradeHistory({ sym, onUndo, tab }: { sym: Symbol; onUndo: () => void; tab: TabName }) {
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, conf(sym).currency);
-  const hist = getHist(sym);
+  const [tick, setTick] = useState(0);
+  const allHist = getHist(sym);
+  const buyTypes = new Set(['buy', 'rbuy']);
+  const sellTypes = new Set(['quarter', 'all', 'rsell']);
+  const hist = tab === 'buy'
+    ? allHist.filter(h => buyTypes.has(h.type))
+    : tab === 'sell'
+    ? allHist.filter(h => sellTypes.has(h.type))
+    : allHist;
   const undoStack = getUndo(sym);
   const label: Record<string, string> = { buy:'매수', quarter:'쿼터매도', all:'전량매도', rsell:'리버스매도', rbuy:'리버스매수' };
   const color: Record<string, string> = {
@@ -196,7 +204,7 @@ function TradeHistory({ sym, onUndo }: { sym: Symbol; onUndo: () => void }) {
           {undoStack.length > 0 && (
             <button onClick={onUndo} className="text-xs text-muted-foreground hover:text-foreground transition-colors">되돌리기</button>
           )}
-          <button onClick={() => { setHist(sym, []); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors">전체 삭제</button>
+          <button onClick={() => { setHist(sym, []); setTick(t => t + 1); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors">전체 삭제</button>
         </div>
       </div>
       <div className="max-h-44 overflow-y-auto">
@@ -226,6 +234,7 @@ function JournalTab({ sym }: { sym: Symbol }) {
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, conf(sym).currency);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<number | null>(null);
+  const [tick, setTick] = useState(0);
   const PAGE_SZ = 5;
   const journal = getJournal(sym);
   const reversed = [...journal].reverse();
@@ -249,7 +258,7 @@ function JournalTab({ sym }: { sym: Symbol }) {
     <div className="flex flex-col gap-2">
       <div className="flex justify-between items-center">
         <span className="text-xs text-muted-foreground uppercase tracking-wide">매매일지</span>
-        <button onClick={() => { setJournal(sym, []); setPage(1); setOpen(null); }} className="text-xs text-muted-foreground hover:text-destructive transition-colors">전체 삭제</button>
+        <button onClick={() => { setJournal(sym, []); setPage(1); setOpen(null); setTick(t => t + 1); }} className="text-xs text-muted-foreground hover:text-destructive transition-colors">전체 삭제</button>
       </div>
       {items.map((j, i) => {
         const origIdx = journal.length - 1 - ((page - 1) * PAGE_SZ + i);
@@ -753,7 +762,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
         </div>
       </div>
 
-      <TradeHistory sym={sym} onUndo={handleUndo} />
+      <TradeHistory sym={sym} onUndo={handleUndo} tab={tab} />
 
       {/* 사이클 완료 모달 */}
       {showReset && (
