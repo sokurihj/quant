@@ -598,10 +598,10 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                     placeholder="예: 73.05" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
               </div>
-              {recQty > 0 && (
+              {buyPriceNum > 0 && nb > 0 && (
                 <p className="text-xs text-muted-foreground font-mono">
-                  권장: {f(recAmt)}{recQty > 0 ? ` ≈ ${recQty}주` : ''}
-                  {tdelta === 0.5 ? ` (1회매수금 ${f(nb)}의 절반)` : ''}
+                  권장: {f(recAmt)}{recQty > 0 ? ` ≈ ${recQty}주` : ' (1주 미만)'}
+                  {tdelta === 0.5 ? ` · 1회매수금 ${f(nb)}의 절반` : ''}
                 </p>
               )}
               {recQty > 0 && parseFloat(buyQty) > recQty && (
