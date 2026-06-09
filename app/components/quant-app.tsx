@@ -48,7 +48,7 @@ function StatusBar({ s, sym }: { s: SymbolState; sym: Symbol }) {
   );
 }
 
-function TargetCards({ s, sym }: { s: SymbolState; sym: Symbol }) {
+function TargetCards({ s, sym, revByeol }: { s: SymbolState; sym: Symbol; revByeol: string }) {
   const c = conf(sym);
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, c.currency);
   const hasPos = s.avg > 0 && s.shares > 0;
@@ -66,7 +66,7 @@ function TargetCards({ s, sym }: { s: SymbolState; sym: Symbol }) {
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
           <p className="text-xs text-muted-foreground mb-2">리버스 별지점</p>
-          <p className="font-mono text-xl font-bold">직접 입력</p>
+          <p className="font-mono text-xl font-bold">{revByeol ? f(parseFloat(revByeol)) : '—'}</p>
           <p className="text-xs text-muted-foreground mt-1">5거래일 종가 평균</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
@@ -286,6 +286,25 @@ function JournalTab({ sym }: { sym: Symbol }) {
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">시작 자본</span><span className="font-mono">{f(j.startRem)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">종료 자본</span><span className="font-mono">{f(j.endRem)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">사이클 수익</span><span className={`font-mono font-semibold ${profitPos ? 'text-chart-2' : 'text-destructive'}`}>{profitStr}</span></div>
+                {j.trades && j.trades.length > 0 && (
+                  <div className="mt-1.5 flex flex-col gap-0.5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">체결 내역</span>
+                    {j.trades.map((t, ti) => {
+                      const typeLabel = t.type === 'buy' ? '매수' : t.type === 'quarter' ? '쿼터매도' : t.type === 'all' ? '지정가매도' : t.type === 'rbuy' ? '리버스매수' : '리버스매도';
+                      const isSell = t.type === 'quarter' || t.type === 'all' || t.type === 'rsell';
+                      return (
+                        <div key={ti} className="flex items-center justify-between text-xs py-0.5 border-b border-border/40 last:border-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-muted-foreground w-14 shrink-0">{t.date}</span>
+                            <span className={`font-medium w-16 shrink-0 ${isSell ? 'text-chart-2' : 'text-foreground'}`}>{typeLabel}</span>
+                            <span className="text-muted-foreground font-mono">{t.shares}주 × {f(t.price, 2)}</span>
+                          </div>
+                          <span className={`font-mono font-medium shrink-0 ${isSell ? 'text-chart-2' : 'text-foreground'}`}>{isSell ? '+' : '-'}{f(t.amount)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <button onClick={() => del(origIdx)} className="self-end text-xs text-muted-foreground hover:text-destructive transition-colors mt-1">삭제</button>
               </div>
             )}
@@ -421,7 +440,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       const invested = cur.avg * cur.shares;
       const profitPct = invested > 0 ? profit / invested * 100 : 0;
       const journal = getJournal(sym);
-      journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem: endRem - profit, endRem, profit, profitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko') });
+      const cycleHist = [...hist, { type: 'all' as const, shares: cur.shares, price, amount: cur.shares * price, T: cur.T, date: new Date().toLocaleDateString('ko') }];
+      journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem: endRem - profit, endRem, profit, profitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko'), trades: cycleHist });
       setJournal(sym, journal);
       setHist(sym, []);
       const newS = { ...cur, rem: endRem, total: endRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: endRem, cycleStartDate: null, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
@@ -480,16 +500,18 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
     const amount = amtVal > 0 ? amtVal : cur.rem / 4;
     const price = parseFloat(revBuyPrice);
     if (!price || price <= 0) return alert('매수가를 입력하세요.');
-    const qty = parseFloat((amount / price).toFixed(6));
+    const qty = Math.floor(amount / price);
+    if (qty <= 0) return alert('매수 금액이 너무 작아 1주도 살 수 없습니다.');
+    const actualAmount = qty * price;
     saveSnapshot(sym);
     const s = { ...cur };
     s.avg = s.shares > 0 ? newAvg(s.avg, s.shares, price, qty) : price;
     s.shares = parseFloat((s.shares + qty).toFixed(6));
-    s.rem -= amount;
+    s.rem -= actualAmount;
     s.T = revTBuy(s.T, s.div);
     setState(sym, s);
     const hist = getHist(sym);
-    hist.push({ type: 'rbuy', shares: qty, price, amount, T: s.T, date: new Date().toLocaleDateString('ko') });
+    hist.push({ type: 'rbuy', shares: qty, price, amount: actualAmount, T: s.T, date: new Date().toLocaleDateString('ko') });
     setHist(sym, hist);
     setRevBuyAmt(''); setRevBuyPrice('');
     refresh();
@@ -580,7 +602,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
         </div>
       )}
 
-      <TargetCards s={s} sym={sym} />
+      <TargetCards s={s} sym={sym} revByeol={revByeol} />
       <LocGuide s={s} sym={sym} />
 
       {/* 액션 패널 */}
@@ -639,20 +661,34 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                 <span className="text-xs text-muted-foreground">오늘 매수금액 (잔금 ÷ 4)</span>
                 <span className="font-mono">{s.reverseDay > 0 ? f(s.rem / 4) : '첫날 매수 없음'}</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">매수 금액 ({unit})</label>
-                  <input type="number" value={revBuyAmt} onChange={e => setRevBuyAmt(e.target.value)}
-                    placeholder="잔금/4 자동" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">매수가 ({unit})</label>
-                  <input type="number" value={revBuyPrice} onChange={e => setRevBuyPrice(e.target.value)}
-                    placeholder="별지점 아래 LOC 체결가" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">별지점(5거래일 평균) 아래에서 LOC 매수. D1 첫날은 매수 없음.</p>
-              <button onClick={handleReverseBuy} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">리버스 매수 기록</button>
+              {s.reverseDay > 0 && (
+                <>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">별지점 — 5거래일 평균 종가 ({unit})</label>
+                    <input type="number" value={revByeol} onChange={e => setRevByeol(e.target.value)}
+                      placeholder="예: 35.00" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                    {revByeol && parseFloat(revByeol) > 0 && (() => {
+                      const byeolNum = parseFloat(revByeol);
+                      const amt = parseFloat(revBuyAmt) > 0 ? parseFloat(revBuyAmt) : s.rem / 4;
+                      const orderQty = Math.floor(amt / byeolNum);
+                      return (
+                        <p className="text-xs text-primary font-mono mt-1.5">
+                          권장 주문 수량: {orderQty}주 (LOC 매수 — 별지점 아래 체결 시)
+                        </p>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">실제 체결가 ({unit})</label>
+                    <input type="number" value={revBuyPrice} onChange={e => setRevBuyPrice(e.target.value)}
+                      placeholder="LOC 체결가" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                  </div>
+                  <button onClick={handleReverseBuy} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">리버스 매수 기록</button>
+                </>
+              )}
+              {s.reverseDay === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">D1 첫날은 매수 없음</p>
+              )}
             </div>
           )}
 

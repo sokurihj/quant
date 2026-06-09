@@ -34,6 +34,7 @@ export interface JournalEntry {
   profitPct: number;
   startDate: string;
   endDate: string;
+  trades?: HistoryEntry[];
 }
 
 export interface UndoSnapshot {

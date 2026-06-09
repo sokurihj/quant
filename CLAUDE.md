@@ -67,7 +67,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - 심볼 전환 시 `<QuantApp key={sym} sym={sym} />` 로 컴포넌트 완전 리마운트
 - localStorage 변경 후 `setTick(t => t + 1)` 으로 리렌더 트리거
 - `mounted` 패턴: Supabase sync 완료 후 `setMounted(true)` → hydration 오류 방지
-- `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거
+- `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거; 펼치면 `JournalEntry.trades`(체결내역 배열) 표시 — 사이클 종료 시점에 저장됨, 기존 항목은 undefined
 - `TradeHistory`는 `tab` prop을 받아 매수탭(buy/rbuy)·매도탭(quarter/all/rsell) 필터링; 로컬 `tick` state로 전체 삭제 즉시 반영
 - 되돌리기 스택은 `UNDO_LIMIT = 10` (storage.ts) — 초과 시 오래된 것부터 삭제
 - `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 임시 보관하는 ephemeral state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; 컴포넌트 리마운트 시 초기화됨
