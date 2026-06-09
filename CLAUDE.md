@@ -70,6 +70,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거
 - `TradeHistory`는 `tab` prop을 받아 매수탭(buy/rbuy)·매도탭(quarter/all/rsell) 필터링; 로컬 `tick` state로 전체 삭제 즉시 반영
 - 되돌리기 스택은 `UNDO_LIMIT = 10` (storage.ts) — 초과 시 오래된 것부터 삭제
+- `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 임시 보관하는 ephemeral state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; 컴포넌트 리마운트 시 초기화됨
 
 ## 문서
 기능 추가·변경 시 `docs/README.md` 함께 업데이트

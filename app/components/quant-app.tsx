@@ -326,6 +326,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [revExitPrice, setRevExitPrice] = useState('');
   const [setRem, setSetRem] = useState('');
   const [setCapital, setSetCapital] = useState('');
+  const [lastQuarterProceeds, setLastQuarterProceeds] = useState(0);
   const [setDiv, setSetDiv] = useState<20 | 40>(40);
 
   const [mounted, setMounted] = useState(false);
@@ -413,6 +414,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       setState(sym, s);
       hist.push({ type: 'quarter', shares: sell, price, amount: sell * price, T: s.T, date: new Date().toLocaleDateString('ko') });
       setHist(sym, hist);
+      setLastQuarterProceeds(sell * price);
     } else {
       const profit = (price - cur.avg) * cur.shares;
       const endRem = cur.rem + cur.shares * price;
@@ -742,6 +744,23 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               <div className="border-t border-border pt-4 flex flex-col gap-3">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">잔여자본 직접 수정 ({unit})</label>
+                  {lastQuarterProceeds > 0 && (
+                    <div className="mb-2 flex flex-col gap-1.5">
+                      <p className="text-xs text-muted-foreground">마지막 쿼터매도 수익: <span className="font-mono text-foreground">{f(lastQuarterProceeds)}</span> — 재투입 금액 선택</p>
+                      <div className="flex gap-2">
+                        {([25, 50, 100] as const).map(pct => {
+                          const add = lastQuarterProceeds * pct / 100;
+                          const cur = getState(sym);
+                          return (
+                            <button key={pct} onClick={() => cur && setSetRem(String(parseFloat((cur.rem + add).toFixed(2))))}
+                              className="flex-1 text-xs border border-border rounded py-1.5 hover:bg-accent transition-colors font-mono">
+                              +{f(add)} ({pct}%)
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <input type="number" value={setRem} onChange={e => setSetRem(e.target.value)}
                     placeholder="실제 남은 현금 입력" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
