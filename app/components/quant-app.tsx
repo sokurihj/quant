@@ -345,6 +345,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [revExitPrice, setRevExitPrice] = useState('');
   const [setRem, setSetRem] = useState('');
   const [setCapital, setSetCapital] = useState('');
+  const [setTotal, setSetTotal] = useState('');
   const [lastQuarterProceeds, setLastQuarterProceeds] = useState(0);
   const [setDiv, setSetDiv] = useState<20 | 40>(40);
 
@@ -825,6 +826,37 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   refresh();
                   alert(`잔여자본이 ${f(val)}으로 수정되었습니다.`);
                 }} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">잔여자본 수정</button>
+              </div>
+              <div className="border-t border-border pt-4 flex flex-col gap-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">총 자본 직접 수정 ({unit})</label>
+                  {(() => {
+                    const cur = getState(sym);
+                    if (!cur || !cur.shares || !cur.avg) return null;
+                    const suggested = cur.rem + cur.shares * cur.avg;
+                    return (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        추정값: 잔여자본 + 보유{unit} × 평단가 = <button
+                          className="font-mono text-foreground underline underline-offset-2 hover:opacity-70"
+                          onClick={() => setSetTotal(suggested.toFixed(2))}
+                        >{f(suggested)}</button>
+                      </p>
+                    );
+                  })()}
+                  <input type="number" value={setTotal} onChange={e => setSetTotal(e.target.value)}
+                    placeholder="총 자본 입력" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                </div>
+                <p className="text-xs text-muted-foreground">T값·평단가·잔여자본은 유지되고 총 자본 표시만 변경됩니다.</p>
+                <button onClick={() => {
+                  const val = parseFloat(setTotal);
+                  if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
+                  const cur = getState(sym);
+                  if (!cur) return;
+                  setState(sym, { ...cur, total: val });
+                  setSetTotal('');
+                  refresh();
+                  alert(`총 자본이 ${f(val)}으로 수정되었습니다.`);
+                }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">총 자본 수정</button>
               </div>
             </div>
           )}
