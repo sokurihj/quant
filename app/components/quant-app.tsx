@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName, SymbolState, HistoryEntry, JournalEntry } from '@/lib/types';
-import { defState, bPct, bPrice, ftPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, shouldEnterReverse, fmt, conf } from '@/lib/calc';
+import { defState, bPct, bPrice, ftPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf } from '@/lib/calc';
 import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase } from '@/lib/storage';
 
 // ── 서브 컴포넌트 ──────────────────────────────────────────────────────────
@@ -20,8 +20,8 @@ function StatusBar({ s, sym }: { s: SymbolState; sym: Symbol }) {
           <p className="font-mono text-sm font-semibold">{hasPos ? f(s.avg) : '—'}</p>
         </div>
         <div className="p-3 border-b sm:border-b-0 sm:border-r border-border">
-          <p className="text-xs text-muted-foreground mb-1">보유주식</p>
-          <p className="font-mono text-sm font-semibold">{hasPos ? `${s.shares.toFixed(4)}주` : '—'}</p>
+          <p className="text-xs text-muted-foreground mb-1">{sym === 'BTC' ? '보유수량' : '보유주식'}</p>
+          <p className="font-mono text-sm font-semibold">{hasPos ? `${s.shares.toFixed(conf(sym).decimals || 4)}${conf(sym).unit}` : '—'}</p>
         </div>
         <div className="p-3 border-r border-border">
           <p className="text-xs text-muted-foreground mb-1">총 자본</p>
@@ -55,14 +55,14 @@ function TargetCards({ s, sym, revByeol }: { s: SymbolState; sym: Symbol; revBye
   const isReverse = s.mode === 'reverse';
 
   if (isReverse) {
-    const qty = hasPos ? revSellQty(s.shares, s.div) : 0;
+    const qty = hasPos ? revSellQty(s.shares, s.div, sym) : 0;
     const rdAmt = s.reverseDay > 0 ? s.rem / 4 : 0;
     return (
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-card border border-destructive/40 rounded-lg p-3">
           <p className="text-xs text-muted-foreground mb-2">오늘 매도 수량</p>
-          <p className="font-mono text-xl font-bold text-destructive">{hasPos ? `${qty}주` : '—'}</p>
-          <p className="text-xs text-muted-foreground mt-1">{hasPos ? `${s.shares.toFixed(4)}주 ÷ ${s.div}` : '—'}</p>
+          <p className="font-mono text-xl font-bold text-destructive">{hasPos ? `${qty}${c.unit}` : '—'}</p>
+          <p className="text-xs text-muted-foreground mt-1">{hasPos ? `${s.shares.toFixed(c.decimals || 4)}${c.unit} ÷ ${s.div}` : '—'}</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
           <p className="text-xs text-muted-foreground mb-2">리버스 별지점</p>
@@ -148,7 +148,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-4 py-2 border-b border-border bg-muted/40">
         <p className="text-xs text-muted-foreground">
-          오늘 LOC 매수 방법 · <span className="text-foreground font-medium">{isSecondHalf ? '후반전' : '전반전'}</span>
+          오늘 {sym === 'BTC' ? '지정가' : 'LOC'} 매수 방법 · <span className="text-foreground font-medium">{isSecondHalf ? '후반전' : '전반전'}</span>
         </p>
       </div>
       <div className="divide-y divide-border">
@@ -156,7 +156,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold bg-primary/15 text-primary px-2 py-0.5 rounded">별지점</span>
             <div>
-              <p className="font-mono text-sm font-semibold">{f(buyPt)} 이하 LOC</p>
+              <p className="font-mono text-sm font-semibold">{f(buyPt)} 이하 {sym === 'BTC' ? '지정가' : 'LOC'}</p>
               <p className="text-xs text-muted-foreground">별지점 {f(bpr)} − {tickStr}{bp < 0 ? ' · 평단 아래' : ''}</p>
             </div>
           </div>
@@ -167,7 +167,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
               <div>
-                <p className="font-mono text-sm font-semibold">{f(avgPt)} 이하 LOC</p>
+                <p className="font-mono text-sm font-semibold">{f(avgPt)} 이하 {sym === 'BTC' ? '지정가' : 'LOC'}</p>
                 <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
               </div>
             </div>
@@ -215,7 +215,7 @@ function TradeHistory({ sym, onUndo, tab }: { sym: Symbol; onUndo: () => void; t
             <div key={i} className="flex items-center justify-between px-4 py-2 border-b border-border/50 last:border-none">
               <div className="flex items-center gap-3">
                 <span className={`text-xs font-semibold w-14 ${color[h.type]}`}>{label[h.type]}</span>
-                <span className="font-mono text-xs">{h.shares.toFixed(4)}주 @ {f(h.price)}</span>
+                <span className="font-mono text-xs">{h.shares.toFixed(conf(sym).decimals || 4)}{conf(sym).unit} @ {f(h.price)}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs">{f(h.amount)}</span>
@@ -297,7 +297,7 @@ function JournalTab({ sym }: { sym: Symbol }) {
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="text-muted-foreground w-14 shrink-0">{t.date}</span>
                             <span className={`font-medium w-16 shrink-0 ${isSell ? 'text-chart-2' : 'text-foreground'}`}>{typeLabel}</span>
-                            <span className="text-muted-foreground font-mono">{t.shares}주 × {f(t.price, 2)}</span>
+                            <span className="text-muted-foreground font-mono">{t.shares}{conf(sym).unit} × {f(t.price, 2)}</span>
                           </div>
                           <span className={`font-mono font-medium shrink-0 ${isSell ? 'text-chart-2' : 'text-foreground'}`}>{isSell ? '+' : '-'}{f(t.amount)}</span>
                         </div>
@@ -369,7 +369,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const nb = s ? nextAmt(s.rem, s.div, s.T) : 0;
   const recAmt = tdelta === 0.5 ? nb / 2 : nb;
   const buyPriceNum = parseFloat(buyPrice);
-  const recQty = buyPriceNum > 0 && nb > 0 ? Math.floor(recAmt / buyPriceNum) : 0;
+  const recQty = buyPriceNum > 0 && nb > 0 ? qtyFloor(recAmt / buyPriceNum, sym) : 0;
 
   const handleInit = useCallback((capital: number, division: 20 | 40) => {
     setState(sym, defState(capital, division));
@@ -427,8 +427,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       : type === 'quarter' ? bPrice(cur.avg, sym, cur.div, cur.T) : ftPrice(cur.avg, sym);
     const hist = getHist(sym);
     if (type === 'quarter') {
-      const sell = Math.floor(cur.shares * 0.25);
-      if (sell <= 0) return alert('보유 주수가 너무 적어 쿼터매도가 불가능합니다.');
+      const sell = qtyFloor(cur.shares * 0.25, sym);
+      if (sell <= 0) return alert('보유 수량이 너무 적어 쿼터매도가 불가능합니다.');
       const s = { ...cur, shares: parseFloat((cur.shares - sell).toFixed(6)), T: parseFloat((cur.T * 0.75).toFixed(4)) };
       setState(sym, s);
       hist.push({ type: 'quarter', shares: sell, price, amount: sell * price, T: s.T, date: new Date().toLocaleDateString('ko') });
@@ -473,7 +473,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const handleReverseSell = useCallback(() => {
     const cur = getState(sym);
     if (!cur || cur.shares <= 0) return alert('보유 포지션이 없습니다.');
-    const qty = revSellQty(cur.shares, cur.div);
+    const qty = revSellQty(cur.shares, cur.div, sym);
     if (qty <= 0) return alert('매도 가능 수량이 없습니다.');
     const byeolVal = parseFloat(revByeol);
     const priceVal = parseFloat(revSellPriceVal);
@@ -500,8 +500,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
     const amount = amtVal > 0 ? amtVal : cur.rem / 4;
     const price = parseFloat(revBuyPrice);
     if (!price || price <= 0) return alert('매수가를 입력하세요.');
-    const qty = Math.floor(amount / price);
-    if (qty <= 0) return alert('매수 금액이 너무 작아 1주도 살 수 없습니다.');
+    const qty = qtyFloor(amount / price, sym);
+    if (qty <= 0) return alert('매수 금액이 너무 작습니다.');
     const actualAmount = qty * price;
     saveSnapshot(sym);
     const s = { ...cur };
@@ -621,37 +621,51 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">매수 수량 (주)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">매수 수량 ({conf(sym).unit})</label>
                   <input type="number" value={buyQty} onChange={e => setBuyQty(e.target.value)}
-                    placeholder="예: 3" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                    placeholder={sym === 'BTC' ? '예: 0.001163' : '예: 3'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">매수가 ({unit})</label>
-                  <input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                  <input type="number" value={buyPrice} onChange={e => {
+                    const p = e.target.value;
+                    setBuyPrice(p);
+                    const price = parseFloat(p);
+                    if (price > 0 && nb > 0) {
+                      const auto = qtyFloor(recAmt / price, sym);
+                      if (auto > 0) setBuyQty(String(auto));
+                    }
+                  }}
                     placeholder="예: 73.05" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
               </div>
               {buyPriceNum > 0 && nb > 0 && (
                 <p className="text-xs text-muted-foreground font-mono">
-                  권장: {f(recAmt)}{recQty > 0 ? ` ≈ ${recQty}주` : ' (1주 미만)'}
+                  권장: {f(recAmt)}{recQty > 0 ? ` ≈ ${recQty}${conf(sym).unit}` : ' (최소 단위 미만)'}
                   {tdelta === 0.5 ? ` · 1회매수금 ${f(nb)}의 절반` : ''}
                 </p>
               )}
               {recQty > 0 && parseFloat(buyQty) > recQty && (
-                <p className="text-xs text-amber-500">권장 수량({recQty}주)을 초과했습니다. T값이 예상보다 빠르게 증가합니다.</p>
+                <p className="text-xs text-amber-500">권장 수량({recQty}{conf(sym).unit})을 초과했습니다. T값이 예상보다 빠르게 증가합니다.</p>
               )}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
-                <div className="flex gap-2">
-                  {([1.0, 0.5] as const).map(v => (
-                    <button key={v} onClick={() => setTdelta(v)}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${tdelta === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
-                      {v === 1.0 ? '전체 체결 (T +1)' : '절반 체결 (T +0.5)'}
-                    </button>
-                  ))}
+              {sym !== 'BTC' && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
+                  <div className="flex gap-2">
+                    {([1.0, 0.5] as const).map(v => (
+                      <button key={v} onClick={() => setTdelta(v)}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${tdelta === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+                        {v === 1.0 ? '전체 체결 (T +1)' : '절반 체결 (T +0.5)'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground">실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {sym === 'BTC'
+                  ? '별지점 이하인 날 매수 후 체결가를 입력하세요. (T +1 고정)'
+                  : '실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.'}
+              </p>
               <button onClick={handleBuy} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">매수 기록하기</button>
             </div>
           )}
@@ -664,16 +678,16 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               {s.reverseDay > 0 && (
                 <>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">별지점 — 5거래일 평균 종가 ({unit})</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">별지점 — 5일 평균 종가 ({unit})</label>
                     <input type="number" value={revByeol} onChange={e => setRevByeol(e.target.value)}
                       placeholder="예: 35.00" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                     {revByeol && parseFloat(revByeol) > 0 && (() => {
                       const byeolNum = parseFloat(revByeol);
                       const amt = parseFloat(revBuyAmt) > 0 ? parseFloat(revBuyAmt) : s.rem / 4;
-                      const orderQty = Math.floor(amt / byeolNum);
+                      const orderQty = qtyFloor(amt / byeolNum, sym);
                       return (
                         <p className="text-xs text-primary font-mono mt-1.5">
-                          권장 주문 수량: {orderQty}주 (LOC 매수 — 별지점 아래 체결 시)
+                          권장 주문 수량: {orderQty}{conf(sym).unit} ({sym === 'BTC' ? '지정가' : 'LOC'} — 별지점 아래 체결 시)
                         </p>
                       );
                     })()}
@@ -722,7 +736,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               <div className="bg-muted/40 border border-border rounded p-3 flex flex-col gap-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-xs text-muted-foreground">오늘 매도 수량</span>
-                  <span className="font-mono">{hasPos ? `${revSellQty(s.shares, s.div)}주` : '—'}</span>
+                  <span className="font-mono">{hasPos ? `${revSellQty(s.shares, s.div, sym)}${conf(sym).unit}` : '—'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-xs text-muted-foreground">리버스 별지점 (5거래일 평균)</span>
@@ -731,7 +745,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">5거래일 평균 종가 (별지점)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">5일 평균 종가 (별지점)</label>
                   <input type="number" value={revByeol} onChange={e => setRevByeol(e.target.value)}
                     placeholder="예: 35.00" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>

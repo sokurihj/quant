@@ -1,9 +1,10 @@
 import type { Symbol, SymbolState } from './types';
 
 const CONF = {
-  TQQQ:    { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'USD', tick: 0.01 },
-  SOXL:    { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  }, currency: 'USD', tick: 0.01 },
-  HYNIX2X: { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'KRW', tick: 5   },
+  TQQQ:    { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'USD', tick: 0.01, decimals: 0, unit: '주' },
+  SOXL:    { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  }, currency: 'USD', tick: 0.01, decimals: 0, unit: '주' },
+  HYNIX2X: { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'KRW', tick: 5,   decimals: 0, unit: '주' },
+  BTC:     { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  }, currency: 'USD', tick: 0.1,  decimals: 6, unit: 'BTC' },
 } as const;
 
 export const conf = (sym: Symbol) => CONF[sym];
@@ -29,8 +30,13 @@ export const revTSell = (T: number, div: number) =>
 export const revTBuy = (T: number, div: number) =>
   parseFloat((T + (div - T) * 0.25).toFixed(4));
 
-export const revSellQty = (shares: number, div: number) =>
-  Math.floor(shares / div);
+export const qtyFloor = (qty: number, sym: Symbol) => {
+  const d = CONF[sym].decimals;
+  return d === 0 ? Math.floor(qty) : parseFloat(qty.toFixed(d));
+};
+
+export const revSellQty = (shares: number, div: number, sym: Symbol) =>
+  qtyFloor(shares / div, sym);
 
 export const shouldEnterReverse = (T: number, div: number) => T > div - 1;
 

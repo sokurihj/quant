@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-미국 레버리지 ETF(TQQQ, SOXL) 전용 **분할매수 전략** 수동 매매 보조 계산기.  
+미국 레버리지 ETF(TQQQ, SOXL) 및 BTC 현물 **분할매수 전략** 수동 매매 보조 계산기.  
 수동으로 매매 체결 후 기록하면 T값·별지점·지정가매도 목표가를 자동 계산한다.
 
 ## 실행 방법
@@ -32,14 +32,14 @@ python trade.py init TQQQ 10000 40
 ```
 app/                    ← Next.js 16 + shadcn UI (주 UI)
   app/
-    page.tsx            ← 심볼 탭(TQQQ/SOXL) + QuantApp 마운트
+    page.tsx            ← 심볼 탭(TQQQ/SOXL/BTC) + QuantApp 마운트
     layout.tsx          ← Merriweather + JetBrains Mono 폰트
     globals.css         ← shadcn 테마 (warm earthy palette)
   components/
     quant-app.tsx       ← "use client" 메인 컴포넌트. 전체 상태·핸들러 보유
   lib/
     types.ts            ← TypeScript 타입 (SymbolState, HistoryEntry 등)
-    calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt 등)
+    calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt, qtyFloor 등)
     storage.ts          ← localStorage read/write + Supabase 동기화 (getState, setHist 등)
     supabase.ts         ← Supabase 클라이언트 (환경변수에서 URL/key 읽음)
 
@@ -71,6 +71,8 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `TradeHistory`는 `tab` prop을 받아 매수탭(buy/rbuy)·매도탭(quarter/all/rsell) 필터링; 로컬 `tick` state로 전체 삭제 즉시 반영
 - 되돌리기 스택은 `UNDO_LIMIT = 10` (storage.ts) — 초과 시 오래된 것부터 삭제
 - `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 임시 보관하는 ephemeral state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; 컴포넌트 리마운트 시 초기화됨
+- `conf(sym).decimals` / `conf(sym).unit`: 심볼별 수량 소수점 자리수(주식 0, BTC 6)와 단위('주' / 'BTC') — `qtyFloor(qty, sym)`로 sym-aware 수량 내림 처리
+- BTC 탭은 T+0.5(절반 체결) 옵션 없음 — 항상 T+1 고정; 매수가 입력 시 권장 BTC 수량 자동계산
 
 ## 문서
 기능 추가·변경 시 `docs/README.md` 함께 업데이트
