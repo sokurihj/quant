@@ -5,4 +5,5 @@ state.json
 .DS_Store
 src/
 docs/
-api
+tossapi/
+.vercel
