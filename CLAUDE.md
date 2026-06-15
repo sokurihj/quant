@@ -42,6 +42,12 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
     calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt, qtyFloor 등)
     storage.ts          ← localStorage read/write + Supabase 동기화 (getState, setHist 등)
     supabase.ts         ← Supabase 클라이언트 (환경변수에서 URL/key 읽음)
+    toss.ts             ← 토스증권 Open API 헬퍼 (토큰 캐싱, fetchPrice, fetchFiveDayAvg)
+  app/
+    api/
+      toss/
+        price/route.ts   ← GET /api/toss/price?symbol= (현재가, 소수점 2자리)
+        candles/route.ts ← GET /api/toss/candles?symbol= (전 5거래일 종가 평균)
 
 index.html              ← 레거시 바닐라 JS UI (localStorage, 서버 불필요)
 trade.py                ← 터미널 CLI
@@ -60,7 +66,8 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - **쓰기**: localStorage에 즉시 저장 + Supabase `kv_store`에 비동기 upsert
 - **읽기**: 앱 마운트 시 Supabase → localStorage 동기화 후 렌더링 (`syncFromSupabase`)
 - 기기간 데이터 공유는 Supabase를 통해 이루어짐
-- 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.local`)
+- 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET` (`.env.local`)
+- 토스증권 토큰은 모듈 레벨 변수로 캐싱, 만료 1분 전 자동 갱신 (`lib/toss.ts`)
 
 ## Next.js 앱 주요 패턴
 
@@ -70,7 +77,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거; 펼치면 `JournalEntry.trades`(체결내역 배열) 표시 — 사이클 종료 시점에 저장됨, 기존 항목은 undefined
 - `TradeHistory`는 `tab` prop을 받아 매수탭(buy/rbuy)·매도탭(quarter/all/rsell) 필터링; 로컬 `tick` state로 전체 삭제 즉시 반영
 - 되돌리기 스택은 `UNDO_LIMIT = 10` (storage.ts) — 초과 시 오래된 것부터 삭제
-- `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 임시 보관하는 ephemeral state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; 컴포넌트 리마운트 시 초기화됨
+- `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 보관하는 state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; `lqp_${sym}` localStorage 키로 영속화되므로 심볼 전환 후에도 유지됨; 재투입 버튼 클릭 시 0으로 초기화(`setLastQP(sym, 0)`)
 - `total`(총 자본)은 표시 전용 — 모든 매수금액 계산은 `rem`만 사용. 설정 탭에서 직접 수정 가능; 보유주식이 있으면 `rem + shares × avg` 추정값을 클릭 한 번으로 채울 수 있음
 - `conf(sym).decimals` / `conf(sym).unit`: 심볼별 수량 소수점 자리수(주식 0, BTC 6)와 단위('주' / 'BTC') — `qtyFloor(qty, sym)`로 sym-aware 수량 내림 처리
 - BTC 탭은 T+0.5(절반 체결) 옵션 없음 — 항상 T+1 고정; 매수가 입력 시 권장 BTC 수량 자동계산

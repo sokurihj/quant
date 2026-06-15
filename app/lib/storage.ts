@@ -38,6 +38,18 @@ export const setUndo    = (sym: Symbol, u: UndoSnapshot[]) => set(`undo_${sym}`,
 
 export const UNDO_LIMIT = 10;
 
+// 쿼터매도 수익 임시 보관 (Supabase 동기화 불필요)
+export const getLastQP = (sym: Symbol): number => {
+  if (typeof window === 'undefined') return 0;
+  const v = localStorage.getItem(`lqp_${sym}`);
+  return v ? parseFloat(v) : 0;
+};
+export const setLastQP = (sym: Symbol, v: number) => {
+  if (typeof window === 'undefined') return;
+  if (v === 0) localStorage.removeItem(`lqp_${sym}`);
+  else localStorage.setItem(`lqp_${sym}`, String(v));
+};
+
 export const saveSnapshot = (sym: Symbol) => {
   const state = getState(sym);
   if (!state) return;

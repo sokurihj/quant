@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName, SymbolState, HistoryEntry, JournalEntry } from '@/lib/types';
 import { defState, bPct, bPrice, ftPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf } from '@/lib/calc';
-import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase } from '@/lib/storage';
+import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, getLastQP, setLastQP } from '@/lib/storage';
 
 // ── 서브 컴포넌트 ──────────────────────────────────────────────────────────
 
@@ -337,10 +337,12 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   // 입력 필드
   const [buyQty, setBuyQty] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
+  const [priceLoading, setPriceLoading] = useState(false);
   const [sellPrice, setSellPrice] = useState('');
   const [revBuyAmt, setRevBuyAmt] = useState('');
   const [revBuyPrice, setRevBuyPrice] = useState('');
   const [revByeol, setRevByeol] = useState('');
+  const [revByeolLoading, setRevByeolLoading] = useState(false);
   const [revSellPriceVal, setRevSellPriceVal] = useState('');
   const [revExitPrice, setRevExitPrice] = useState('');
   const [setRem, setSetRem] = useState('');
@@ -352,6 +354,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    setLastQuarterProceeds(getLastQP(sym));
     // 백그라운드에서 Supabase 동기화 후 리렌더
     syncFromSupabase().then(() => setTick(t => t + 1));
   }, []);
@@ -436,20 +439,23 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       hist.push({ type: 'quarter', shares: sell, price, amount: sell * price, T: s.T, date: new Date().toLocaleDateString('ko') });
       setHist(sym, hist);
       setLastQuarterProceeds(sell * price);
+      setLastQP(sym, sell * price);
     } else {
-      const profit = (price - cur.avg) * cur.shares;
-      const endRem = cur.rem + cur.shares * price;
-      const invested = cur.avg * cur.shares;
-      const profitPct = invested > 0 ? profit / invested * 100 : 0;
+      const quarterProceeds = hist.filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
+      const nextRem = cur.rem + cur.shares * price;
+      const journalEndRem = nextRem + quarterProceeds;
+      const startRem = cur.cycleStartRem ?? nextRem;
+      const journalProfit = journalEndRem - startRem;
+      const journalProfitPct = startRem > 0 ? journalProfit / startRem * 100 : 0;
       const journal = getJournal(sym);
       const cycleHist = [...hist, { type: 'all' as const, shares: cur.shares, price, amount: cur.shares * price, T: cur.T, date: new Date().toLocaleDateString('ko') }];
-      journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem: endRem - profit, endRem, profit, profitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko'), trades: cycleHist });
+      journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem, endRem: journalEndRem, profit: journalProfit, profitPct: journalProfitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko'), trades: cycleHist });
       setJournal(sym, journal);
       setHist(sym, []);
-      const newS = { ...cur, rem: endRem, total: endRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: endRem, cycleStartDate: null, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
+      const newS = { ...cur, rem: nextRem, total: nextRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: nextRem, cycleStartDate: null, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
       setState(sym, newS);
-      setPendingProfit(profit);
-      setResetCapital(endRem.toFixed(2));
+      setPendingProfit(journalProfit);
+      setResetCapital(journalEndRem.toFixed(2));
       setResetDiv(cur.div);
       setSellPrice('');
       setShowReset(true);
@@ -629,7 +635,36 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                     placeholder={sym === 'BTC' ? '예: 0.001163' : '예: 3'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">매수가 ({unit})</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs text-muted-foreground">매수가 ({unit})</label>
+                    {sym !== 'BTC' && (
+                      <button
+                        onClick={async () => {
+                          setPriceLoading(true);
+                          try {
+                            const res = await fetch(`/api/toss/price?symbol=${sym}`);
+                            const data = await res.json();
+                            if (data.price) {
+                              setBuyPrice(data.price);
+                              const price = parseFloat(data.price);
+                              if (price > 0 && nb > 0) {
+                                const auto = qtyFloor(recAmt / price, sym);
+                                if (auto > 0) setBuyQty(String(auto));
+                              }
+                            }
+                          } catch {
+                            // 조용히 실패
+                          } finally {
+                            setPriceLoading(false);
+                          }
+                        }}
+                        disabled={priceLoading}
+                        className="text-xs text-primary hover:underline disabled:opacity-40"
+                      >
+                        {priceLoading ? '조회 중...' : '현재가'}
+                      </button>
+                    )}
+                  </div>
                   <input type="number" value={buyPrice} onChange={e => {
                     const p = e.target.value;
                     setBuyPrice(p);
@@ -681,7 +716,25 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               {s.reverseDay > 0 && (
                 <>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">별지점 — 5일 평균 종가 ({unit})</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-muted-foreground">별지점 — 5일 평균 종가 ({unit})</label>
+                      {sym !== 'BTC' && (
+                        <button
+                          onClick={() => {
+                            setRevByeolLoading(true);
+                            fetch(`/api/toss/candles?symbol=${sym}`)
+                              .then(r => r.json())
+                              .then(d => { if (d.avg) setRevByeol(d.avg); })
+                              .catch(() => {})
+                              .finally(() => setRevByeolLoading(false));
+                          }}
+                          disabled={revByeolLoading}
+                          className="text-xs text-primary hover:underline disabled:opacity-40"
+                        >
+                          {revByeolLoading ? '조회 중...' : '5일평균'}
+                        </button>
+                      )}
+                    </div>
                     <input type="number" value={revByeol} onChange={e => setRevByeol(e.target.value)}
                       placeholder="예: 35.00" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                     {revByeol && parseFloat(revByeol) > 0 && (() => {
@@ -748,7 +801,25 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">5일 평균 종가 (별지점)</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs text-muted-foreground">5일 평균 종가 (별지점)</label>
+                    {sym !== 'BTC' && (
+                      <button
+                        onClick={() => {
+                          setRevByeolLoading(true);
+                          fetch(`/api/toss/candles?symbol=${sym}`)
+                            .then(r => r.json())
+                            .then(d => { if (d.avg) setRevByeol(d.avg); })
+                            .catch(() => {})
+                            .finally(() => setRevByeolLoading(false));
+                        }}
+                        disabled={revByeolLoading}
+                        className="text-xs text-primary hover:underline disabled:opacity-40"
+                      >
+                        {revByeolLoading ? '조회 중...' : '5일평균'}
+                      </button>
+                    )}
+                  </div>
                   <input type="number" value={revByeol} onChange={e => setRevByeol(e.target.value)}
                     placeholder="예: 35.00" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
@@ -806,7 +877,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                           const add = lastQuarterProceeds * pct / 100;
                           const cur = getState(sym);
                           return (
-                            <button key={pct} onClick={() => cur && setSetRem(String(parseFloat((cur.rem + add).toFixed(2))))}
+                            <button key={pct} onClick={() => { if (cur) { setSetRem(String(parseFloat((cur.rem + add).toFixed(2)))); setLastQuarterProceeds(0); setLastQP(sym, 0); } }}
                               className="flex-1 text-xs border border-border rounded py-1.5 hover:bg-accent transition-colors font-mono">
                               +{f(add)} ({pct}%)
                             </button>

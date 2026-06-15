@@ -19,7 +19,13 @@
 - 주식 탭 placeholder: `예: 3`
 - 보유 수량 표시: `toFixed(conf(sym).decimals || 4)` + `conf(sym).unit`
 
-## 사이클 종료 흐름
+## 사이클 종료 흐름 (Next.js, handleSell('all'))
+- 매매일지 수익 계산: `hist`에서 `type === 'quarter'`인 항목의 amount 합산 → `quarterProceeds`
+- `nextRem = cur.rem + cur.shares * price` (쿼터매도 수익 제외, 다음 사이클 초기 잔금)
+- `journalEndRem = nextRem + quarterProceeds` (저널용 종료 자본 — 쿼터매도 포함)
+- `startRem = cur.cycleStartRem` (첫 매수 시 기록된 잔금)
+- `journalProfit = journalEndRem - startRem`
+- 재설정 모달 기본값: `resetCapital = journalEndRem.toFixed(2)`
 - `handleSell('all')` → 현재 hist + 최종 매도 entry를 `JournalEntry.trades`에 포함해 매매일지 저장 → state 리셋 → 재설정 모달 표시
 - 모달(`#reset-overlay`)에서 총 자본·분할수 입력 → `handleResetConfirm()` 호출
 - `handleResetConfirm()`: `defState(capital, division)` + cycle 번호 이어받기 + hist 초기화
@@ -32,6 +38,7 @@
 | `hist_${sym}` | 거래 내역 배열 |
 | `undo_${sym}` | 되돌리기 스택 |
 | `journal_${sym}` | 매매일지 배열 (사이클별 수익 기록) |
+| `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 (Supabase 동기화 없음; 재투입 시 삭제) |
 
 ## state 주요 필드
 | 필드 | 설명 |
@@ -52,3 +59,9 @@
 - 실제 체결가만 입력 → `qtyFloor(rem/4 / 체결가, sym)` 수량으로 기록
 - `revByeol` state는 ① 매수 탭과 ② 매도 탭이 공유 (한 번 입력하면 양쪽 반영)
 - `TargetCards`에 `revByeol` prop 전달 → 상단 리버스 별지점 카드에 실시간 표시
+- 별지점 입력란 옆 "5일평균" 버튼 → `/api/toss/candles?symbol=` 호출해 자동 채움 (BTC 제외, 주식만)
+
+## 토스증권 API 연동 (Next.js)
+- 매수가 입력란 옆 "현재가" 버튼 → `/api/toss/price?symbol=` 호출해 자동 채움 (BTC 제외, 주식만)
+- API route가 서버에서 `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET`으로 토큰을 발급해 클라이언트에 Secret 미노출
+- BTC는 토스증권 미지원 종목이므로 두 버튼 모두 표시하지 않음
