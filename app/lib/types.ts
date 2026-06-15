@@ -8,7 +8,7 @@ export interface SymbolState {
   shares: number;
   rem: number;
   total: number;
-  div: 20 | 40;
+  div: 10 | 20 | 40;
   cycle: number;
   mode: Mode;
   reverseDay: number;

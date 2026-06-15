@@ -160,9 +160,9 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
               <p className="text-xs text-muted-foreground">별지점 {f(bpr)} − {tickStr}{bp < 0 ? ' · 평단 아래' : ''}</p>
             </div>
           </div>
-          <span className="font-mono text-sm font-semibold text-primary">{f(isSecondHalf ? nb : half)}</span>
+          <span className="font-mono text-sm font-semibold text-primary">{f(isSecondHalf || sym === 'BTC' ? nb : half)}</span>
         </div>
-        {!isSecondHalf && (
+        {!isSecondHalf && sym !== 'BTC' && (
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
@@ -331,7 +331,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [showReset, setShowReset] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [resetCapital, setResetCapital] = useState('');
-  const [resetDiv, setResetDiv] = useState<20 | 40>(40);
+  const [resetDiv, setResetDiv] = useState<10 | 20 | 40>(40);
   const [pendingProfit, setPendingProfit] = useState(0);
 
   // 입력 필드
@@ -347,7 +347,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [setCapital, setSetCapital] = useState('');
   const [setTotal, setSetTotal] = useState('');
   const [lastQuarterProceeds, setLastQuarterProceeds] = useState(0);
-  const [setDiv, setSetDiv] = useState<20 | 40>(40);
+  const [setDiv, setSetDiv] = useState<10 | 20 | 40>(40);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -372,9 +372,10 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const buyPriceNum = parseFloat(buyPrice);
   const recQty = buyPriceNum > 0 && nb > 0 ? qtyFloor(recAmt / buyPriceNum, sym) : 0;
 
-  const handleInit = useCallback((capital: number, division: 20 | 40) => {
+  const handleInit = useCallback((capital: number, division: 10 | 20 | 40) => {
     setState(sym, defState(capital, division));
     setHist(sym, []);
+    setLastQuarterProceeds(0);
     refresh();
   }, [sym, refresh]);
 
@@ -549,6 +550,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
           <div className="flex flex-col gap-1.5 text-left">
             <label className="text-xs text-muted-foreground">분할 수</label>
             <select id="ob-division" className="bg-input border border-border rounded px-3 py-2 text-sm w-40 outline-none focus:border-ring">
+              {sym === 'BTC' && <option value="10">10분할 — BTC형</option>}
               <option value="40">40분할 — 안정형</option>
               <option value="20">20분할 — 공격형</option>
             </select>
@@ -556,7 +558,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
           <button
             onClick={() => {
               const cap = parseFloat((document.getElementById('ob-capital') as HTMLInputElement).value) || 10000;
-              const div = parseInt((document.getElementById('ob-division') as HTMLSelectElement).value) as 20 | 40 || 40;
+              const div = parseInt((document.getElementById('ob-division') as HTMLSelectElement).value) as 10 | 20 | 40 || 40;
               handleInit(cap, div);
             }}
             className="self-end bg-primary text-primary-foreground px-5 py-2 rounded text-sm font-semibold hover:opacity-90 transition-opacity"
@@ -775,8 +777,9 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                 </div>
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">분할 수 재설정</label>
-                  <select value={setDiv} onChange={e => setSetDiv(parseInt(e.target.value) as 20 | 40)}
+                  <select value={setDiv} onChange={e => setSetDiv(parseInt(e.target.value) as 10 | 20 | 40)}
                     className="w-full bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:border-ring">
+                    {sym === 'BTC' && <option value="10">10분할 — BTC형</option>}
                     <option value="40">40분할 — 안정형</option>
                     <option value="20">20분할 — 공격형</option>
                   </select>
@@ -886,8 +889,9 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">분할 수</label>
-                <select value={resetDiv} onChange={e => setResetDiv(parseInt(e.target.value) as 20 | 40)}
+                <select value={resetDiv} onChange={e => setResetDiv(parseInt(e.target.value) as 10 | 20 | 40)}
                   className="w-full bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:border-ring">
+                  {sym === 'BTC' && <option value="10">10분할 — BTC형</option>}
                   <option value="40">40분할 — 안정형</option>
                   <option value="20">20분할 — 공격형</option>
                 </select>
