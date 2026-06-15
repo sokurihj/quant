@@ -167,7 +167,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
               <div>
-                <p className="font-mono text-sm font-semibold">{f(avgPt)} 이하 {sym === 'BTC' ? '지정가' : 'LOC'}</p>
+                <p className="font-mono text-sm font-semibold">{f(avgPt)} 이하 LOC</p>
                 <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
               </div>
             </div>
