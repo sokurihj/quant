@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-미국 레버리지 ETF(TQQQ, SOXL) 및 BTC 현물 **분할매수 전략** 수동 매매 보조 계산기.  
+미국 레버리지 ETF(TQQQ, SOXL), 국내 레버리지 ETN(HYNIX2X) 및 BTC 현물 **분할매수 전략** 수동 매매 보조 계산기.  
 수동으로 매매 체결 후 기록하면 T값·별지점·지정가매도 목표가를 자동 계산한다.
 
 ## 실행 방법
@@ -42,17 +42,18 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
     calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt, qtyFloor 등)
     storage.ts          ← localStorage read/write + Supabase 동기화 (getState, setHist 등)
     supabase.ts         ← Supabase 클라이언트 (환경변수에서 URL/key 읽음)
-    toss.ts             ← 토스증권 Open API 헬퍼 (fetchPrice, fetchFiveDayAvg) — TOSS_PROXY_URL 설정 시 프록시 경유, 미설정 시 직접 호출
+    toss.ts             ← 토스증권 Open API 헬퍼 (fetchPrice, fetchFiveDayAvg, fetchHoldings) — TOSS_PROXY_URL 설정 시 프록시 경유, 미설정 시 직접 호출; SYMBOL_MAP으로 앱 심볼 → 토스 종목코드 변환 (HYNIX2X→0195S0)
   app/
     api/
       toss/
-        price/route.ts   ← GET /api/toss/price?symbol= (현재가, 소수점 2자리)
-        candles/route.ts ← GET /api/toss/candles?symbol= (전 5거래일 종가 평균)
+        price/route.ts    ← GET /api/toss/price?symbol= (현재가, 소수점 2자리)
+        candles/route.ts  ← GET /api/toss/candles?symbol= (전 5거래일 종가 평균)
+        holdings/route.ts ← GET /api/toss/holdings?symbol= (보유수량·평단가 조회)
 
 tossapi/
   server.js             ← Oracle Cloud VM에서 실행하는 토스 API 프록시 서버 (포트 3001)
-                           GET /price?symbol= / GET /candles?symbol=
-                           PROXY_SECRET 환경변수로 인증
+                           GET /price?symbol= / GET /candles?symbol= / GET /holdings?symbol=
+                           PROXY_SECRET 환경변수로 인증; accountSeq 모듈 레벨 캐싱
 
 index.html              ← 레거시 바닐라 JS UI (localStorage, 서버 불필요)
 trade.py                ← 터미널 CLI

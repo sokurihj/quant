@@ -65,3 +65,11 @@
 - 매수가 입력란 옆 "현재가" 버튼 → `/api/toss/price?symbol=` 호출해 자동 채움 (BTC 제외, 주식만)
 - API route가 서버에서 `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET`으로 토큰을 발급해 클라이언트에 Secret 미노출
 - BTC는 토스증권 미지원 종목이므로 두 버튼 모두 표시하지 않음
+- HYNIX2X 등 국내 종목은 `toss.ts`의 `SYMBOL_MAP`으로 토스 종목코드로 자동 변환 (HYNIX2X→0195S0)
+
+## 계좌 동기화 (Next.js, 설정 탭)
+- 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용
+- 클릭 시 `/api/toss/holdings?symbol=` 호출 → 토스 계좌의 보유수량·평단가를 `state.shares`, `state.avg`에 덮어씀
+- 동기화 전 `saveSnapshot(sym)`으로 undo 스택 저장 → 되돌리기 가능
+- 보유량 0이면 state 업데이트 없이 'empty' 메시지 표시 (0으로 덮어쓰기 방지)
+- `syncLoading` / `syncStatus('idle'|'ok'|'error'|'empty')` state로 UI 피드백
