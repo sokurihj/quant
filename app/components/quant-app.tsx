@@ -51,6 +51,7 @@ function StatusBar({ s, sym }: { s: SymbolState; sym: Symbol }) {
 function TargetCards({ s, sym, revByeol }: { s: SymbolState; sym: Symbol; revByeol: string }) {
   const c = conf(sym);
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, c.currency);
+  const fd = (n: number) => f(c.currency === 'KRW' ? Math.floor(n / 10) * 10 : n);
   const hasPos = s.avg > 0 && s.shares > 0;
   const isReverse = s.mode === 'reverse';
 
@@ -112,15 +113,15 @@ function TargetCards({ s, sym, revByeol }: { s: SymbolState; sym: Symbol; revBye
     <div className="grid grid-cols-3 gap-2">
       <div className={`bg-card border rounded-lg p-3 ${isNeg ? 'border-destructive/40' : 'border-primary/40'}`}>
         <p className="text-xs text-muted-foreground mb-2">별지점 (쿼터매도)</p>
-        <p className={`font-mono text-xl font-bold ${isNeg ? 'text-destructive' : 'text-primary'}`}>{f(bpr)}</p>
+        <p className={`font-mono text-xl font-bold ${isNeg ? 'text-destructive' : 'text-primary'}`}>{fd(bpr)}</p>
         <p className={`text-xs mt-1 ${isNeg ? 'text-destructive' : 'text-muted-foreground'}`}>
           평단 대비 {bp >= 0 ? '+' : ''}{bp.toFixed(2)}%
         </p>
-        <p className="text-xs text-muted-foreground/50 mt-0.5">매수점: {f(buyPt)}</p>
+        <p className="text-xs text-muted-foreground/50 mt-0.5">매수점: {fd(buyPt)}</p>
       </div>
       <div className="bg-card border border-chart-1/40 rounded-lg p-3">
         <p className="text-xs text-muted-foreground mb-2">지정가 목표 (잔여 ¾)</p>
-        <p className="font-mono text-xl font-bold text-chart-1">{f(ft)}</p>
+        <p className="font-mono text-xl font-bold text-chart-1">{fd(ft)}</p>
         <p className="text-xs text-muted-foreground mt-1">평단 대비 +{c.target_pct}%</p>
       </div>
       <div className="bg-card border border-border rounded-lg p-3">
@@ -136,6 +137,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
   if (s.mode === 'reverse' || !(s.avg > 0 && s.shares > 0)) return null;
   const c = conf(sym);
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, c.currency);
+  const fd = (n: number) => f(c.currency === 'KRW' ? Math.floor(n / 10) * 10 : n);
   const tickStr = c.currency === 'KRW' ? `₩${c.tick}` : `$${c.tick}`;
   const bp = bPct(sym, s.div, s.T);
   const bpr = bPrice(s.avg, sym, s.div, s.T);
@@ -156,8 +158,8 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold bg-primary/15 text-primary px-2 py-0.5 rounded">별지점</span>
             <div>
-              <p className="font-mono text-sm font-semibold">{f(buyPt)} 이하 {sym === 'BTC' ? '지정가' : 'LOC'}</p>
-              <p className="text-xs text-muted-foreground">별지점 {f(bpr)} − {tickStr}{bp < 0 ? ' · 평단 아래' : ''}</p>
+              <p className="font-mono text-sm font-semibold">{fd(buyPt)} 이하 {sym === 'BTC' ? '지정가' : 'LOC'}</p>
+              <p className="text-xs text-muted-foreground">별지점 {fd(bpr)} − {tickStr}{bp < 0 ? ' · 평단 아래' : ''}</p>
             </div>
           </div>
           <span className="font-mono text-sm font-semibold text-primary">{f(isSecondHalf || sym === 'BTC' ? nb : half)}</span>
@@ -167,7 +169,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
               <div>
-                <p className="font-mono text-sm font-semibold">{f(avgPt)} 이하 LOC</p>
+                <p className="font-mono text-sm font-semibold">{fd(avgPt)} 이하 LOC</p>
                 <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
               </div>
             </div>
@@ -354,6 +356,13 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [mounted, setMounted] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'ok' | 'error' | 'empty'>('idle');
+  const [orderDraft, setOrderDraft] = useState<{
+    label: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS';
+    price: string; quantity: string; clientOrderId: string;
+  } | null>(null);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderStatus, setOrderStatus] = useState<'idle' | 'ok' | 'error'>('idle');
+  const [orderErrMsg, setOrderErrMsg] = useState('');
   useEffect(() => {
     setMounted(true);
     setLastQuarterProceeds(getLastQP(sym));
@@ -369,6 +378,13 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const isReverse = s?.mode === 'reverse';
   const cur = conf(sym).currency;
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, cur);
+  const fmtOrderPrice = (price: number) => {
+    if (cur === 'KRW') {
+      const tick = conf(sym).tick; // 호가단위 (HYNIX2X = 5)
+      return String(Math.floor(price / tick) * tick);
+    }
+    return price.toFixed(2);
+  };
   const unit = cur === 'KRW' ? '원' : '달러';
 
   // 권장 수량 계산
@@ -547,6 +563,89 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       setSyncLoading(false);
     }
   }, [sym, refresh]);
+
+  const sendOrder = useCallback(async () => {
+    if (!orderDraft) return;
+    setOrderLoading(true);
+    setOrderStatus('idle');
+    try {
+      const res = await fetch('/api/toss/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: sym, ...orderDraft }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setOrderStatus('ok');
+      setTimeout(() => { setOrderDraft(null); setOrderStatus('idle'); }, 2000);
+    } catch (e) {
+      setOrderStatus('error');
+      setOrderErrMsg(e instanceof Error ? e.message : '알 수 없는 오류');
+    } finally {
+      setOrderLoading(false);
+    }
+  }, [orderDraft, sym]);
+
+  const openBuyLocOrder = () => {
+    if (!s || !hasPos) return;
+    const bpr = bPrice(s.avg, sym, s.div, s.T);
+    const buyPt = bpr - conf(sym).tick;
+    const isSecHalf = s.T >= s.div / 2;
+    const locAmt = isSecHalf ? nb : nb / 2;
+    const qty = recQty > 0 ? recQty : qtyFloor(locAmt / buyPt, sym);
+    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    const d = new Date().toISOString().slice(0, 10);
+    setOrderDraft({ label: '별지점 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${d}` });
+  };
+
+  const openAvgLocOrder = () => {
+    if (!s || !hasPos) return;
+    const avgPt = s.avg - conf(sym).tick;
+    const qty = recQty > 0 ? recQty : qtyFloor((nb / 2) / avgPt, sym);
+    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    const d = new Date().toISOString().slice(0, 10);
+    setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${d}` });
+  };
+
+  const openBuyLimitOrder = () => {
+    if (!s || !hasPos) return;
+    const bpr = bPrice(s.avg, sym, s.div, s.T);
+    const buyPt = bpr - conf(sym).tick;
+    const isSecHalf = s.T >= s.div / 2;
+    const locAmt = isSecHalf ? nb : nb / 2;
+    const qty = recQty > 0 ? recQty : qtyFloor(locAmt / buyPt, sym);
+    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    const d = new Date().toISOString().slice(0, 10);
+    setOrderDraft({ label: '별지점 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-BYEOL-${d}` });
+  };
+
+  const openAvgLimitOrder = () => {
+    if (!s || !hasPos) return;
+    const avgPt = s.avg - conf(sym).tick;
+    const qty = recQty > 0 ? recQty : qtyFloor((nb / 2) / avgPt, sym);
+    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    const d = new Date().toISOString().slice(0, 10);
+    setOrderDraft({ label: '평단가 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-AVG-${d}` });
+  };
+
+  const openQuarterSellOrder = () => {
+    if (!s || !hasPos) return;
+    const price = bPrice(s.avg, sym, s.div, s.T);
+    const qty = qtyFloor(s.shares * 0.25, sym);
+    if (qty <= 0) return alert('보유 수량이 너무 적습니다.');
+    const d = new Date().toISOString().slice(0, 10);
+    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-SELL-QUARTER-${d}` });
+  };
+
+  const openLimitSellOrder = () => {
+    if (!s || !hasPos) return;
+    const price = ftPrice(s.avg, sym);
+    const quarterQty = qtyFloor(s.shares * 0.25, sym);
+    const qty = parseFloat((s.shares - quarterQty).toFixed(6));
+    if (qty <= 0) return alert('보유 수량이 너무 적습니다.');
+    const d = new Date().toISOString().slice(0, 10);
+    setOrderDraft({ label: '지정가매도 주문 (¾)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-SELL-LIMIT-${d}` });
+  };
 
   const checkRevExit = useCallback(() => {
     const cur = getState(sym);
@@ -728,6 +827,31 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   ? '별지점 이하인 날 매수 후 체결가를 입력하세요. (T +1 고정)'
                   : '실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.'}
               </p>
+              {hasPos && sym !== 'BTC' && (
+                <div className="border-t border-border pt-3 flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
+                  {cur === 'USD' && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs text-muted-foreground/60">LOC (장 마감 지정가)</p>
+                      <div className="flex gap-2">
+                        <button onClick={openBuyLocOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">별지점 LOC</button>
+                        {s.T < s.div / 2 && (
+                          <button onClick={openAvgLocOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 LOC</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-muted-foreground/60">지정가</p>
+                    <div className="flex gap-2">
+                      <button onClick={openBuyLimitOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">별지점 지정가</button>
+                      {s.T < s.div / 2 && (
+                        <button onClick={openAvgLimitOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 지정가</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               <button onClick={handleBuy} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">매수 기록하기</button>
             </div>
           )}
@@ -805,6 +929,15 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   placeholder="비워두면 목표가 자동 사용" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
               </div>
               <p className="text-xs text-muted-foreground">목표가에 정확히 체결되지 않았다면 실제 체결가를 입력하세요.</p>
+              {hasPos && sym !== 'BTC' && (
+                <div className="border-t border-border pt-3 flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
+                  <div className="flex gap-2">
+                    <button onClick={openQuarterSellOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">쿼터매도 주문</button>
+                    <button onClick={openLimitSellOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">지정가매도 주문</button>
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button onClick={() => handleSell('quarter')} className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity border border-border">쿼터매도 (¼)</button>
                 <button onClick={() => handleSell('all')} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">지정가매도 (¾)</button>
@@ -979,6 +1112,50 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       </div>
 
       <TradeHistory sym={sym} onUndo={handleUndo} tab={tab} />
+
+      {/* 주문 확인 모달 */}
+      {orderDraft && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm flex flex-col gap-4">
+            <div>
+              <h3 className="text-base font-semibold">{orderDraft.label}</h3>
+              <p className="text-xs text-destructive mt-1 font-semibold">실제 돈이 걸린 주문입니다. 확인 후 전송하세요.</p>
+            </div>
+            <div className="bg-muted/40 border border-border rounded-lg divide-y divide-border text-sm">
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">심볼</span>
+                <span className="font-mono font-semibold">{sym}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">주문 유형</span>
+                <span className="font-mono">{orderDraft.timeInForce === 'CLS' ? 'LOC (장 마감 지정가)' : '지정가'}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">수량</span>
+                <span className="font-mono font-semibold">{orderDraft.quantity}{conf(sym).unit}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">가격</span>
+                <span className="font-mono font-semibold">{f(parseFloat(orderDraft.price))}</span>
+              </div>
+            </div>
+            {orderStatus === 'ok' && <p className="text-sm text-primary text-center font-semibold">주문이 전송되었습니다.</p>}
+            {orderStatus === 'error' && <p className="text-sm text-destructive text-center">{orderErrMsg}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setOrderDraft(null); setOrderStatus('idle'); }}
+                disabled={orderLoading}
+                className="flex-1 border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+              >취소</button>
+              <button
+                onClick={sendOrder}
+                disabled={orderLoading || orderStatus === 'ok'}
+                className="flex-1 bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+              >{orderLoading ? '전송 중...' : '주문 전송'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 사이클 완료 모달 */}
       {showReset && (

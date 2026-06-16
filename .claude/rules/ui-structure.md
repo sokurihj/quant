@@ -67,6 +67,23 @@
 - BTC는 토스증권 미지원 종목이므로 두 버튼 모두 표시하지 않음
 - HYNIX2X 등 국내 종목은 `toss.ts`의 `SYMBOL_MAP`으로 토스 종목코드로 자동 변환 (HYNIX2X→0195S0)
 
+## 토스증권 주문 전송 (Next.js, 매수·매도 탭)
+- BTC 제외, 포지션(hasPos) 있을 때만 주문 버튼 표시
+- **매수 탭**
+  - USD 심볼(TQQQ/SOXL): LOC 섹션(별지점 LOC, 평단가 LOC*) + 지정가 섹션(별지점 지정가, 평단가 지정가*)
+  - KRW 심볼(HYNIX2X): 지정가 섹션만 (LOC 미지원)
+  - *전반전(`T < div/2`)에만 평단가 버튼 표시
+- **매도 탭**: 쿼터매도 주문 (별지점 지정가, 보유량 ¼) + 지정가매도 주문 (목표가, 보유량 − 쿼터수량)
+  - 지정가매도 수량 = `shares - qtyFloor(shares * 0.25, sym)` (단순 ¾ 곱셈 시 1주 누락 방지)
+- 버튼 클릭 → `orderDraft` state에 주문 정보 저장 → 확인 모달 표시 → "주문 전송" 클릭 → `POST /api/toss/order`
+- `orderDraft` 구조: `{ label, side, orderType:'LIMIT', timeInForce?:'CLS', price, quantity, clientOrderId }`
+  - `clientOrderId` 형식: `${sym}-${side}-${type}-${YYYY-MM-DD}` (중복 주문 방지)
+- KRW 주문가 포맷: `Math.floor(price / conf(sym).tick) * conf(sym).tick` (HYNIX2X tick=5 → ₩5 단위 내림)
+- KRW 가격 표시: `fd()` 헬퍼 = `Math.floor(n / 10) * 10` (TargetCards·LocGuide에서 1의 자리 내림, 금액엔 미적용)
+- `orderStatus('idle'|'ok'|'error')` / `orderErrMsg` state로 모달 내 피드백
+- LOC 주문: `timeInForce:'CLS'` — 미국 장 마감 지정가 (USD 심볼 전용, KRX 미지원)
+- 토스 API 주문 에러 패턴: `{ error: { code, message } }` 형태로 중첩됨
+
 ## 계좌 동기화 (Next.js, 설정 탭)
 - 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용
 - 클릭 시 `/api/toss/holdings?symbol=` 호출 → 토스 계좌의 보유수량·평단가를 `state.shares`, `state.avg`에 덮어씀

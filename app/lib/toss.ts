@@ -109,6 +109,51 @@ export async function fetchHoldings(symbol: string): Promise<HoldingsResult> {
   }
 }
 
+export interface OrderParams {
+  symbol: string
+  side: 'BUY' | 'SELL'
+  orderType: 'LIMIT'
+  timeInForce?: 'CLS'
+  quantity: string
+  price: string
+  clientOrderId?: string
+}
+
+export async function createOrder(params: OrderParams): Promise<unknown> {
+  const tossSymbol = toTossSymbol(params.symbol)
+  const body = { ...params, symbol: tossSymbol }
+
+  if (PROXY_URL) {
+    const res = await fetch(`${PROXY_URL}/order`, {
+      method: 'POST',
+      headers: { ...proxyHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json() as { message?: string; error?: string }
+    if (!res.ok) throw new Error(data.message ?? data.error ?? `주문 실패: ${res.status}`)
+    return data
+  }
+
+  const token = await getToken()
+  const accountSeq = await getAccountSeq(token)
+  const res = await fetch(`${TOSS_BASE}/api/v1/orders`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Tossinvest-Account': String(accountSeq),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json() as { message?: string; error?: { message?: string } | string }
+  if (!res.ok) {
+    const err = data.error
+    const msg = typeof err === 'object' ? err?.message : err ?? data.message ?? `주문 실패: ${res.status}`
+    throw new Error(msg)
+  }
+  return data
+}
+
 export async function fetchFiveDayAvg(symbol: string): Promise<string> {
   const tossSymbol = toTossSymbol(symbol)
   if (PROXY_URL) {
