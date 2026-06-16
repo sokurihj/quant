@@ -326,7 +326,13 @@ function JournalTab({ sym }: { sym: Symbol }) {
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
-export default function QuantApp({ sym }: { sym: Symbol }) {
+export type OpenOrder = { orderId: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS'; quantity: string; price: string };
+
+export default function QuantApp({ sym, openOrders, setOpenOrders }: {
+  sym: Symbol;
+  openOrders: OpenOrder[] | null;
+  setOpenOrders: (orders: OpenOrder[] | null) => void;
+}) {
   const [tab, setTab] = useState<TabName>('buy');
   const [tdelta, setTdelta] = useState(1.0);
   const [tick, setTick] = useState(0); // 리렌더 트리거
@@ -364,7 +370,6 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [orderErrMsg, setOrderErrMsg] = useState('');
-  const [openOrders, setOpenOrders] = useState<{ orderId: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS'; quantity: string; price: string }[] | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   useEffect(() => {
@@ -574,7 +579,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
     setOrdersLoading(true);
     try {
       const res = await fetch(`/api/toss/order?symbol=${sym}`);
-      const data = await res.json() as { orders?: typeof openOrders; error?: string };
+      const data = await res.json() as { orders?: OpenOrder[]; error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setOpenOrders(data.orders ?? []);
     } catch {
@@ -590,7 +595,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       const res = await fetch(`/api/toss/order/${orderId}`, { method: 'DELETE' });
       const data = await res.json() as { error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setOpenOrders(prev => prev ? prev.filter(o => o.orderId !== orderId) : prev);
+      setOpenOrders(openOrders ? openOrders.filter(o => o.orderId !== orderId) : null);
     } catch (e) {
       alert(`취소 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
     } finally {
@@ -883,7 +888,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   ? '별지점 이하인 날 매수 후 체결가를 입력하세요. (T +1 고정)'
                   : '실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.'}
               </p>
-              {(hasPos || isFirst) && sym !== 'BTC' && (
+              {((hasPos || isFirst) || (openOrders !== null && openOrders.length > 0)) && sym !== 'BTC' && (
                 <div className="border-t border-border pt-3 flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">토스증권 주문 전송{isFirst ? ' — 첫 진입 (현재가 기준)' : ''}</p>
                   <div className="border border-border/50 rounded p-2 flex flex-col gap-1.5">

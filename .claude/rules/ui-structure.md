@@ -68,7 +68,7 @@
 - HYNIX2X 등 국내 종목은 `toss.ts`의 `SYMBOL_MAP`으로 토스 종목코드로 자동 변환 (HYNIX2X→0195S0)
 
 ## 토스증권 주문 전송 (Next.js, 매수·매도 탭)
-- BTC 제외, `hasPos || isFirst` 조건일 때 주문 버튼 표시
+- BTC 제외, `hasPos || isFirst` 조건일 때 주문 버튼 표시. **매수 탭 섹션**은 추가로 `openOrders !== null && openOrders.length > 0`일 때도 표시 — 포지션 없이 복귀해도 캐시된 주문 유지
   - `isFirst`: `shares === 0 && avg === 0 && buyPriceNum > 0` — 포지션 없지만 현재가 입력된 첫 진입 상태
   - `isFirst`일 때 섹션 제목에 "— 첫 진입 (현재가 기준)" 표시
 - **매수 탭**
@@ -99,7 +99,7 @@
 
 ## 미체결 주문 관리 (Next.js, 매수·매도 탭)
 - 매수·매도 탭의 "토스증권 주문 전송" 섹션 안에 **미체결 주문 박스** 표시 (BTC 제외)
-- `openOrders`: `null`(미조회) | 배열(조회 완료) — 탭 공유, 심볼 리마운트 시 초기화
+- `openOrders`: `null`(미조회) | 배열(조회 완료) — `page.tsx`의 `openOrdersCache`(`Partial<Record<Symbol, OpenOrder[] | null>>`)에서 심볼별로 관리; 심볼 전환 후 복귀해도 캐시 유지. `QuantApp`에 prop으로 전달(`openOrders`, `setOpenOrders`)
 - `ordersLoading` / `cancellingId` state로 UI 피드백
 - "확인" 버튼 → `GET /api/toss/order?symbol=` → `openOrders` state 업데이트
   - Toss API 응답 구조: `{ result: { orders: [...] } }` (items 아님)

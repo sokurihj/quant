@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { QuantApp } from '@/components/quant-app';
-import type { Symbol } from '@/components/quant-app';
+import type { Symbol, OpenOrder } from '@/components/quant-app';
 
 export default function Home() {
   const [sym, setSym] = useState<Symbol>('TQQQ');
+  const [openOrdersCache, setOpenOrdersCache] = useState<Partial<Record<Symbol, OpenOrder[] | null>>>({});
 
   return (
     <main className="min-h-screen bg-background">
@@ -33,7 +34,12 @@ export default function Home() {
           </div>
         </div>
 
-        <QuantApp key={sym} sym={sym} />
+        <QuantApp
+          key={sym}
+          sym={sym}
+          openOrders={openOrdersCache[sym] ?? null}
+          setOpenOrders={(orders) => setOpenOrdersCache(prev => ({ ...prev, [sym]: orders }))}
+        />
       </div>
     </main>
   );
