@@ -1,4 +1,6 @@
-const BASE = 'https://openapi.tossinvest.com'
+const TOSS_BASE = 'https://openapi.tossinvest.com'
+const PROXY_URL = process.env.TOSS_PROXY_URL
+const PROXY_SECRET = process.env.PROXY_SECRET
 
 let cachedToken: { value: string; expiresAt: number } | null = null
 
@@ -7,7 +9,7 @@ async function getToken(): Promise<string> {
     return cachedToken.value
   }
 
-  const res = await fetch(`${BASE}/oauth2/token`, {
+  const res = await fetch(`${TOSS_BASE}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -17,16 +19,32 @@ async function getToken(): Promise<string> {
     }),
   })
 
-  if (!res.ok) throw new Error(`토스 토큰 발급 실패: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`토스 토큰 발급 실패: ${res.status} / ${body}`)
+  }
 
   const data = await res.json() as { access_token: string; expires_in: number }
   cachedToken = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
   return cachedToken.value
 }
 
+function proxyHeaders(): Record<string, string> {
+  return PROXY_SECRET ? { Authorization: `Bearer ${PROXY_SECRET}` } : {}
+}
+
 export async function fetchPrice(symbol: string): Promise<string> {
+  if (PROXY_URL) {
+    const res = await fetch(`${PROXY_URL}/price?symbol=${encodeURIComponent(symbol)}`, {
+      headers: proxyHeaders(),
+    })
+    if (!res.ok) throw new Error(`현재가 조회 실패: ${res.status}`)
+    const { price } = await res.json() as { price: string }
+    return price
+  }
+
   const token = await getToken()
-  const res = await fetch(`${BASE}/api/v1/prices?symbols=${encodeURIComponent(symbol)}`, {
+  const res = await fetch(`${TOSS_BASE}/api/v1/prices?symbols=${encodeURIComponent(symbol)}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 
@@ -39,9 +57,18 @@ export async function fetchPrice(symbol: string): Promise<string> {
 }
 
 export async function fetchFiveDayAvg(symbol: string): Promise<string> {
+  if (PROXY_URL) {
+    const res = await fetch(`${PROXY_URL}/candles?symbol=${encodeURIComponent(symbol)}`, {
+      headers: proxyHeaders(),
+    })
+    if (!res.ok) throw new Error(`캔들 조회 실패: ${res.status}`)
+    const { avg } = await res.json() as { avg: string }
+    return avg
+  }
+
   const token = await getToken()
   const res = await fetch(
-    `${BASE}/api/v1/candles?symbol=${encodeURIComponent(symbol)}&interval=1d&count=6`,
+    `${TOSS_BASE}/api/v1/candles?symbol=${encodeURIComponent(symbol)}&interval=1d&count=6`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
 

@@ -42,12 +42,17 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
     calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt, qtyFloor 등)
     storage.ts          ← localStorage read/write + Supabase 동기화 (getState, setHist 등)
     supabase.ts         ← Supabase 클라이언트 (환경변수에서 URL/key 읽음)
-    toss.ts             ← 토스증권 Open API 헬퍼 (토큰 캐싱, fetchPrice, fetchFiveDayAvg)
+    toss.ts             ← 토스증권 Open API 헬퍼 (fetchPrice, fetchFiveDayAvg) — TOSS_PROXY_URL 설정 시 프록시 경유, 미설정 시 직접 호출
   app/
     api/
       toss/
         price/route.ts   ← GET /api/toss/price?symbol= (현재가, 소수점 2자리)
         candles/route.ts ← GET /api/toss/candles?symbol= (전 5거래일 종가 평균)
+
+tossapi/
+  server.js             ← Oracle Cloud VM에서 실행하는 토스 API 프록시 서버 (포트 3001)
+                           GET /price?symbol= / GET /candles?symbol=
+                           PROXY_SECRET 환경변수로 인증
 
 index.html              ← 레거시 바닐라 JS UI (localStorage, 서버 불필요)
 trade.py                ← 터미널 CLI
@@ -66,8 +71,11 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - **쓰기**: localStorage에 즉시 저장 + Supabase `kv_store`에 비동기 upsert
 - **읽기**: 앱 마운트 시 Supabase → localStorage 동기화 후 렌더링 (`syncFromSupabase`)
 - 기기간 데이터 공유는 Supabase를 통해 이루어짐
-- 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET` (`.env.local`)
-- 토스증권 토큰은 모듈 레벨 변수로 캐싱, 만료 1분 전 자동 갱신 (`lib/toss.ts`)
+- 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.local`)
+- 토스 API 호출 구조: `TOSS_PROXY_URL`이 설정되면 Oracle VM 프록시 경유, 미설정이면 `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET`으로 직접 호출 (로컬 개발용)
+- Vercel 환경변수: `TOSS_PROXY_URL=http://161.33.168.105:3001`, `PROXY_SECRET` (프록시 인증키)
+- Oracle VM(161.33.168.105)에서 `tossapi/server.js`가 systemd 서비스로 상시 실행 중
+- 토스증권 토큰은 Oracle VM 프록시 내 모듈 레벨 변수로 캐싱, 만료 1분 전 자동 갱신
 
 ## Next.js 앱 주요 패턴
 
