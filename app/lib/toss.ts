@@ -3,6 +3,25 @@ const PROXY_URL = process.env.TOSS_PROXY_URL
 const PROXY_SECRET = process.env.PROXY_SECRET
 
 let cachedToken: { value: string; expiresAt: number } | null = null
+let cachedAccountSeq: number | null = null
+
+async function getAccountSeq(token: string): Promise<number> {
+  if (cachedAccountSeq !== null) return cachedAccountSeq
+  const res = await fetch(`${TOSS_BASE}/api/v1/accounts`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`계좌 조회 실패: ${res.status}`)
+  const data = await res.json() as { result: { accountSeq: number; accountType: string }[] }
+  const account = data.result?.find(a => a.accountType === 'BROKERAGE') ?? data.result?.[0]
+  if (!account) throw new Error('계좌를 찾을 수 없습니다')
+  cachedAccountSeq = account.accountSeq
+  return cachedAccountSeq
+}
+
+export interface HoldingsResult {
+  quantity: number
+  averagePurchasePrice: number
+}
 
 async function getToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
@@ -54,6 +73,30 @@ export async function fetchPrice(symbol: string): Promise<string> {
   const item = data.result[0]
   if (!item) throw new Error(`심볼을 찾을 수 없습니다: ${symbol}`)
   return parseFloat(item.lastPrice).toFixed(2)
+}
+
+export async function fetchHoldings(symbol: string): Promise<HoldingsResult> {
+  if (PROXY_URL) {
+    const res = await fetch(`${PROXY_URL}/holdings?symbol=${encodeURIComponent(symbol)}`, {
+      headers: proxyHeaders(),
+    })
+    if (!res.ok) throw new Error(`보유주식 조회 실패: ${res.status}`)
+    const data = await res.json() as { quantity: string; averagePurchasePrice: string }
+    return { quantity: parseFloat(data.quantity), averagePurchasePrice: parseFloat(data.averagePurchasePrice) }
+  }
+
+  const token = await getToken()
+  const accountSeq = await getAccountSeq(token)
+  const res = await fetch(`${TOSS_BASE}/api/v1/holdings?symbol=${encodeURIComponent(symbol)}`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tossinvest-Account': String(accountSeq) },
+  })
+  if (!res.ok) throw new Error(`보유주식 조회 실패: ${res.status}`)
+  const data = await res.json() as { result: { items: { quantity: string; averagePurchasePrice: string }[] } }
+  const item = data.result?.items?.[0]
+  return {
+    quantity: item ? parseFloat(item.quantity) : 0,
+    averagePurchasePrice: item ? parseFloat(item.averagePurchasePrice) : 0,
+  }
 }
 
 export async function fetchFiveDayAvg(symbol: string): Promise<string> {

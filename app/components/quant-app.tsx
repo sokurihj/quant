@@ -352,6 +352,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [setDiv, setSetDiv] = useState<10 | 20 | 40>(40);
 
   const [mounted, setMounted] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'ok' | 'error' | 'empty'>('idle');
   useEffect(() => {
     setMounted(true);
     setLastQuarterProceeds(getLastQP(sym));
@@ -524,6 +526,27 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
     setRevBuyAmt(''); setRevBuyPrice('');
     refresh();
   }, [sym, revBuyAmt, revBuyPrice, refresh]);
+
+  const handleSyncHoldings = useCallback(async () => {
+    const cur = getState(sym);
+    if (!cur) return;
+    setSyncLoading(true);
+    setSyncStatus('idle');
+    try {
+      const res = await fetch(`/api/toss/holdings?symbol=${sym}`);
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? `HTTP ${res.status}`); }
+      const data: { quantity: number; averagePurchasePrice: number } = await res.json();
+      if (data.quantity === 0) { setSyncStatus('empty'); return; }
+      saveSnapshot(sym);
+      setState(sym, { ...cur, shares: data.quantity, avg: data.averagePurchasePrice });
+      setSyncStatus('ok');
+      refresh();
+    } catch (e) {
+      setSyncStatus('error');
+    } finally {
+      setSyncLoading(false);
+    }
+  }, [sym, refresh]);
 
   const checkRevExit = useCallback(() => {
     const cur = getState(sym);
@@ -932,6 +955,23 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   alert(`총 자본이 ${f(val)}으로 수정되었습니다.`);
                 }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">총 자본 수정</button>
               </div>
+              {sym !== 'BTC' && (
+                <div className="border-t border-border pt-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">계좌 동기화</p>
+                      <p className="text-xs text-muted-foreground">토스증권 계좌에서 보유수량·평단가를 불러옵니다</p>
+                    </div>
+                    <button onClick={handleSyncHoldings} disabled={syncLoading}
+                      className="bg-primary text-primary-foreground px-4 py-2 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0">
+                      {syncLoading ? '동기화 중...' : '계좌 동기화'}
+                    </button>
+                  </div>
+                  {syncStatus === 'ok' && <p className="text-xs text-primary">동기화 완료 — 보유수량·평단가가 업데이트됐습니다. 되돌리기로 복원 가능합니다.</p>}
+                  {syncStatus === 'empty' && <p className="text-xs text-muted-foreground">토스 계좌에 {sym} 보유 내역이 없습니다. 업데이트를 건너뜁니다.</p>}
+                  {syncStatus === 'error' && <p className="text-xs text-destructive">동기화 실패 — 다시 시도하세요.</p>}
+                </div>
+              )}
             </div>
           )}
         </div>
