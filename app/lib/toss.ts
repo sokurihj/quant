@@ -2,6 +2,14 @@ const TOSS_BASE = 'https://openapi.tossinvest.com'
 const PROXY_URL = process.env.TOSS_PROXY_URL
 const PROXY_SECRET = process.env.PROXY_SECRET
 
+const SYMBOL_MAP: Record<string, string> = {
+  HYNIX2X: '0195S0',
+}
+
+function toTossSymbol(symbol: string): string {
+  return SYMBOL_MAP[symbol] ?? symbol
+}
+
 let cachedToken: { value: string; expiresAt: number } | null = null
 let cachedAccountSeq: number | null = null
 
@@ -53,8 +61,9 @@ function proxyHeaders(): Record<string, string> {
 }
 
 export async function fetchPrice(symbol: string): Promise<string> {
+  const tossSymbol = toTossSymbol(symbol)
   if (PROXY_URL) {
-    const res = await fetch(`${PROXY_URL}/price?symbol=${encodeURIComponent(symbol)}`, {
+    const res = await fetch(`${PROXY_URL}/price?symbol=${encodeURIComponent(tossSymbol)}`, {
       headers: proxyHeaders(),
     })
     if (!res.ok) throw new Error(`현재가 조회 실패: ${res.status}`)
@@ -63,7 +72,7 @@ export async function fetchPrice(symbol: string): Promise<string> {
   }
 
   const token = await getToken()
-  const res = await fetch(`${TOSS_BASE}/api/v1/prices?symbols=${encodeURIComponent(symbol)}`, {
+  const res = await fetch(`${TOSS_BASE}/api/v1/prices?symbols=${encodeURIComponent(tossSymbol)}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 
@@ -76,8 +85,9 @@ export async function fetchPrice(symbol: string): Promise<string> {
 }
 
 export async function fetchHoldings(symbol: string): Promise<HoldingsResult> {
+  const tossSymbol = toTossSymbol(symbol)
   if (PROXY_URL) {
-    const res = await fetch(`${PROXY_URL}/holdings?symbol=${encodeURIComponent(symbol)}`, {
+    const res = await fetch(`${PROXY_URL}/holdings?symbol=${encodeURIComponent(tossSymbol)}`, {
       headers: proxyHeaders(),
     })
     if (!res.ok) throw new Error(`보유주식 조회 실패: ${res.status}`)
@@ -87,7 +97,7 @@ export async function fetchHoldings(symbol: string): Promise<HoldingsResult> {
 
   const token = await getToken()
   const accountSeq = await getAccountSeq(token)
-  const res = await fetch(`${TOSS_BASE}/api/v1/holdings?symbol=${encodeURIComponent(symbol)}`, {
+  const res = await fetch(`${TOSS_BASE}/api/v1/holdings?symbol=${encodeURIComponent(tossSymbol)}`, {
     headers: { Authorization: `Bearer ${token}`, 'X-Tossinvest-Account': String(accountSeq) },
   })
   if (!res.ok) throw new Error(`보유주식 조회 실패: ${res.status}`)
@@ -100,8 +110,9 @@ export async function fetchHoldings(symbol: string): Promise<HoldingsResult> {
 }
 
 export async function fetchFiveDayAvg(symbol: string): Promise<string> {
+  const tossSymbol = toTossSymbol(symbol)
   if (PROXY_URL) {
-    const res = await fetch(`${PROXY_URL}/candles?symbol=${encodeURIComponent(symbol)}`, {
+    const res = await fetch(`${PROXY_URL}/candles?symbol=${encodeURIComponent(tossSymbol)}`, {
       headers: proxyHeaders(),
     })
     if (!res.ok) throw new Error(`캔들 조회 실패: ${res.status}`)
@@ -111,7 +122,7 @@ export async function fetchFiveDayAvg(symbol: string): Promise<string> {
 
   const token = await getToken()
   const res = await fetch(
-    `${TOSS_BASE}/api/v1/candles?symbol=${encodeURIComponent(symbol)}&interval=1d&count=6`,
+    `${TOSS_BASE}/api/v1/candles?symbol=${encodeURIComponent(tossSymbol)}&interval=1d&count=6`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
 
