@@ -668,7 +668,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                             const res = await fetch(`/api/toss/price?symbol=${sym}`);
                             const data = await res.json();
                             if (data.price) {
-                              setBuyPrice(data.price);
+                              const rawPrice = conf(sym).currency === 'KRW' ? String(Math.round(parseFloat(data.price))) : data.price;
+                              setBuyPrice(rawPrice);
                               const price = parseFloat(data.price);
                               if (price > 0 && nb > 0) {
                                 const auto = qtyFloor(recAmt / price, sym);
