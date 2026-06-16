@@ -44,6 +44,8 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
     supabase.ts         ← Supabase 클라이언트 (환경변수에서 URL/key 읽음)
     toss.ts             ← 토스증권 Open API 헬퍼 — TOSS_PROXY_URL 설정 시 프록시 경유, 미설정 시 직접 호출
                            fetchPrice / fetchFiveDayAvg / fetchHoldings / createOrder(OrderParams)
+                           fetchOpenOrders(symbol) — 미체결 주문 조회 (Toss API: GET /api/v1/orders?status=OPEN, result.orders 배열)
+                           cancelOrder(orderId) — 주문 취소 (Toss API: DELETE /api/v1/orders/:orderId)
                            SYMBOL_MAP으로 앱 심볼 → 토스 종목코드 변환 (HYNIX2X→0195S0)
                            주문 에러 구조: { error: { code, message } } — message 필드로 추출
   app/
@@ -52,12 +54,14 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
         price/route.ts    ← GET /api/toss/price?symbol= (현재가, 소수점 2자리)
         candles/route.ts  ← GET /api/toss/candles?symbol= (전 5거래일 종가 평균)
         holdings/route.ts ← GET /api/toss/holdings?symbol= (보유수량·평단가 조회)
-        order/route.ts    ← POST /api/toss/order (주문 전송 — BTC 제외)
+        order/route.ts    ← GET /api/toss/order?symbol= (미체결 주문 조회) / POST /api/toss/order (주문 전송 — BTC 제외)
+        order/[orderId]/route.ts ← DELETE /api/toss/order/:orderId (주문 취소)
 
 tossapi/
   server.js             ← Oracle Cloud VM에서 실행하는 토스 API 프록시 서버 (포트 3001)
                            GET /price?symbol= / GET /candles?symbol= / GET /holdings?symbol=
-                           POST /order (주문 전송)
+                           GET /orders?symbol= (미체결 주문 조회, symbol 필터는 선택)
+                           POST /order (주문 전송) / DELETE /order/:orderId (주문 취소)
                            PROXY_SECRET 환경변수로 인증; accountSeq 모듈 레벨 캐싱
                            **실제 실행 경로: /home/ubuntu/proxy/server.js** (서비스 WorkingDirectory)
                            로컬 tossapi/server.js 수정 후 배포 시:

@@ -97,6 +97,16 @@
 - 토스 API 주문 에러 패턴: `{ error: { code, message } }` 형태로 중첩됨
 - 주문 체결은 자동 감지 없음 — 체결 확인 후 매수/매도 탭에서 수동 기록 필요 (3단계 폴링 미구현)
 
+## 미체결 주문 관리 (Next.js, 매수·매도 탭)
+- 매수·매도 탭의 "토스증권 주문 전송" 섹션 안에 **미체결 주문 박스** 표시 (BTC 제외)
+- `openOrders`: `null`(미조회) | 배열(조회 완료) — 탭 공유, 심볼 리마운트 시 초기화
+- `ordersLoading` / `cancellingId` state로 UI 피드백
+- "확인" 버튼 → `GET /api/toss/order?symbol=` → `openOrders` state 업데이트
+  - Toss API 응답 구조: `{ result: { orders: [...] } }` (items 아님)
+  - 미체결 상태는 `status: 'PENDING'` (조회 파라미터는 `status=OPEN`)
+- 주문 행: `LOC매수 / 지정매수 / 지정매도 | 가격 × 수량` + "취소" 버튼
+- "취소" 버튼 → `DELETE /api/toss/order/:orderId` → 성공 시 해당 항목 목록에서 제거
+
 ## 계좌 동기화 (Next.js, 설정 탭)
 - 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용
 - 클릭 시 `/api/toss/holdings?symbol=` 호출 → 토스 계좌의 보유수량·평단가를 `state.shares`, `state.avg`에 덮어씀

@@ -154,6 +154,64 @@ export async function createOrder(params: OrderParams): Promise<unknown> {
   return data
 }
 
+export interface OpenOrder {
+  orderId: string
+  symbol: string
+  side: 'BUY' | 'SELL'
+  orderType: 'LIMIT'
+  timeInForce?: 'CLS'
+  quantity: string
+  price: string
+  clientOrderId?: string
+}
+
+export async function fetchOpenOrders(symbol: string): Promise<OpenOrder[]> {
+  const tossSymbol = toTossSymbol(symbol)
+  if (PROXY_URL) {
+    const res = await fetch(`${PROXY_URL}/orders?symbol=${encodeURIComponent(tossSymbol)}`, {
+      headers: proxyHeaders(),
+    })
+    if (!res.ok) throw new Error(`미체결 주문 조회 실패: ${res.status}`)
+    const data = await res.json() as { orders: OpenOrder[] }
+    return data.orders ?? []
+  }
+
+  const token = await getToken()
+  const accountSeq = await getAccountSeq(token)
+  const res = await fetch(`${TOSS_BASE}/api/v1/orders?status=OPEN`, {
+    headers: { Authorization: `Bearer ${token}`, 'X-Tossinvest-Account': String(accountSeq) },
+  })
+  if (!res.ok) throw new Error(`미체결 주문 조회 실패: ${res.status}`)
+  const data = await res.json() as { result: { orders: OpenOrder[] } }
+  const items = data.result?.orders ?? []
+  return items.filter(o => o.symbol === tossSymbol)
+}
+
+export async function cancelOrder(orderId: string): Promise<void> {
+  if (PROXY_URL) {
+    const res = await fetch(`${PROXY_URL}/order/${orderId}`, {
+      method: 'DELETE',
+      headers: proxyHeaders(),
+    })
+    const data = await res.json() as { error?: string }
+    if (!res.ok) throw new Error(data.error ?? `취소 실패: ${res.status}`)
+    return
+  }
+
+  const token = await getToken()
+  const accountSeq = await getAccountSeq(token)
+  const res = await fetch(`${TOSS_BASE}/api/v1/orders/${orderId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}`, 'X-Tossinvest-Account': String(accountSeq) },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({})) as { error?: { message?: string } | string }
+    const err = data.error
+    const msg = typeof err === 'object' ? err?.message : err ?? `취소 실패: ${res.status}`
+    throw new Error(msg)
+  }
+}
+
 export async function fetchFiveDayAvg(symbol: string): Promise<string> {
   const tossSymbol = toTossSymbol(symbol)
   if (PROXY_URL) {

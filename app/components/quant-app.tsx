@@ -364,6 +364,9 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [orderErrMsg, setOrderErrMsg] = useState('');
+  const [openOrders, setOpenOrders] = useState<{ orderId: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS'; quantity: string; price: string }[] | null>(null);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   useEffect(() => {
     setMounted(true);
     setLastQuarterProceeds(getLastQP(sym));
@@ -566,6 +569,34 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
       setSyncLoading(false);
     }
   }, [sym, refresh]);
+
+  const loadOpenOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await fetch(`/api/toss/order?symbol=${sym}`);
+      const data = await res.json() as { orders?: typeof openOrders; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setOpenOrders(data.orders ?? []);
+    } catch {
+      setOpenOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [sym]);
+
+  const cancelOrderById = useCallback(async (orderId: string) => {
+    setCancellingId(orderId);
+    try {
+      const res = await fetch(`/api/toss/order/${orderId}`, { method: 'DELETE' });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setOpenOrders(prev => prev ? prev.filter(o => o.orderId !== orderId) : prev);
+    } catch (e) {
+      alert(`취소 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+    } finally {
+      setCancellingId(null);
+    }
+  }, []);
 
   const sendOrder = useCallback(async () => {
     if (!orderDraft) return;
@@ -855,6 +886,33 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               {(hasPos || isFirst) && sym !== 'BTC' && (
                 <div className="border-t border-border pt-3 flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">토스증권 주문 전송{isFirst ? ' — 첫 진입 (현재가 기준)' : ''}</p>
+                  <div className="border border-border/50 rounded p-2 flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground/60">미체결 주문</p>
+                      <button onClick={loadOpenOrders} disabled={ordersLoading} className="text-xs text-primary hover:underline disabled:opacity-40">
+                        {ordersLoading ? '조회 중...' : '확인'}
+                      </button>
+                    </div>
+                    {openOrders !== null && (
+                      openOrders.length === 0
+                        ? <p className="text-xs text-muted-foreground/60">미체결 주문 없음</p>
+                        : openOrders.map(order => (
+                            <div key={order.orderId} className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-mono text-muted-foreground">
+                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : '지정매도'}{' '}
+                                {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
+                              </span>
+                              <button
+                                onClick={() => cancelOrderById(order.orderId)}
+                                disabled={cancellingId === order.orderId}
+                                className="text-xs text-destructive hover:underline disabled:opacity-40 shrink-0"
+                              >
+                                {cancellingId === order.orderId ? '취소 중...' : '취소'}
+                              </button>
+                            </div>
+                          ))
+                    )}
+                  </div>
                   {cur === 'USD' && (
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs text-muted-foreground/60">LOC (장 마감 지정가)</p>
@@ -957,6 +1015,33 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
               {hasPos && sym !== 'BTC' && (
                 <div className="border-t border-border pt-3 flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
+                  <div className="border border-border/50 rounded p-2 flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground/60">미체결 주문</p>
+                      <button onClick={loadOpenOrders} disabled={ordersLoading} className="text-xs text-primary hover:underline disabled:opacity-40">
+                        {ordersLoading ? '조회 중...' : '확인'}
+                      </button>
+                    </div>
+                    {openOrders !== null && (
+                      openOrders.length === 0
+                        ? <p className="text-xs text-muted-foreground/60">미체결 주문 없음</p>
+                        : openOrders.map(order => (
+                            <div key={order.orderId} className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-mono text-muted-foreground">
+                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : '지정매도'}{' '}
+                                {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
+                              </span>
+                              <button
+                                onClick={() => cancelOrderById(order.orderId)}
+                                disabled={cancellingId === order.orderId}
+                                className="text-xs text-destructive hover:underline disabled:opacity-40 shrink-0"
+                              >
+                                {cancellingId === order.orderId ? '취소 중...' : '취소'}
+                              </button>
+                            </div>
+                          ))
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={openQuarterSellOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">쿼터매도 주문</button>
                     <button onClick={openLimitSellOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">지정가매도 주문</button>
