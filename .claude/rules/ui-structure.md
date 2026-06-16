@@ -76,13 +76,23 @@
 - **매도 탭**: 쿼터매도 주문 (별지점 지정가, 보유량 ¼) + 지정가매도 주문 (목표가, 보유량 − 쿼터수량)
   - 지정가매도 수량 = `shares - qtyFloor(shares * 0.25, sym)` (단순 ¾ 곱셈 시 1주 누락 방지)
 - 버튼 클릭 → `orderDraft` state에 주문 정보 저장 → 확인 모달 표시 → "주문 전송" 클릭 → `POST /api/toss/order`
-- `orderDraft` 구조: `{ label, side, orderType:'LIMIT', timeInForce?:'CLS', price, quantity, clientOrderId }`
+- `orderDraft` 구조: `{ label, side, orderType:'LIMIT', timeInForce?:'CLS', price, quantity, clientOrderId, maxQty, allocAmt? }`
   - `clientOrderId` 형식: `${sym}-${side}-${type}-${YYYY-MM-DD}` (중복 주문 방지)
+  - `maxQty`: 전략 공식 기준 최대 수량 — 매수: `qtyFloor(allocAmt / price, sym)`, 매도: 쿼터=`qtyFloor(shares×0.25, sym)`, 지정가=`shares−quarterQty`
+  - `allocAmt`: 매수 주문만 보유 — 이번 회차 배정금액 (별지점=`nb` or `nb/2`, 평단가=`nb/2`)
+- 모달 수량 필드는 editable input — 자동 계산값이 기본 채워지고 직접 수정 가능
+  - 초기 수량 결정 우선순위: `recQty > maxQty > 1` (recQty와 maxQty 모두 0이면 1주로 열림)
+  - 가격이 0 이하일 때만 alert로 차단 (수량 0은 차단하지 않음)
+- 모달 한도 표시 및 경고 로직:
+  - **LOC 매수** (`timeInForce:'CLS'`): `배정금액 {allocAmt} (LOC: 종가 체결)` 표시, 초과 경고 없음 — 실제 체결가(종가)가 limit price보다 낮으므로 지정가 기준 비교는 부적절
+  - **지정가 매수**: `qty × price > allocAmt`이면 "배정금액 초과 — {qty}주 × {price} = {cost}" 경고
+  - **매도**: `maxQty > 0`이면 "최대 {maxQty}{unit}" 표시, `qty > maxQty`이면 "전략 한도 초과" 경고
 - KRW 주문가 포맷: `Math.floor(price / conf(sym).tick) * conf(sym).tick` (HYNIX2X tick=5 → ₩5 단위 내림)
 - KRW 가격 표시: `fd()` 헬퍼 = `Math.floor(n / 10) * 10` (TargetCards·LocGuide에서 1의 자리 내림, 금액엔 미적용)
 - `orderStatus('idle'|'ok'|'error')` / `orderErrMsg` state로 모달 내 피드백
 - LOC 주문: `timeInForce:'CLS'` — 미국 장 마감 지정가 (USD 심볼 전용, KRX 미지원)
 - 토스 API 주문 에러 패턴: `{ error: { code, message } }` 형태로 중첩됨
+- 주문 체결은 자동 감지 없음 — 체결 확인 후 매수/매도 탭에서 수동 기록 필요 (3단계 폴링 미구현)
 
 ## 계좌 동기화 (Next.js, 설정 탭)
 - 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용

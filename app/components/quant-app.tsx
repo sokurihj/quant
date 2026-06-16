@@ -359,6 +359,7 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const [orderDraft, setOrderDraft] = useState<{
     label: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS';
     price: string; quantity: string; clientOrderId: string;
+    maxQty: number; allocAmt?: number;
   } | null>(null);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'ok' | 'error'>('idle');
@@ -590,61 +591,67 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
     if (!s || !hasPos) return;
     const bpr = bPrice(s.avg, sym, s.div, s.T);
     const buyPt = bpr - conf(sym).tick;
+    if (buyPt <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
     const isSecHalf = s.T >= s.div / 2;
     const locAmt = isSecHalf ? nb : nb / 2;
-    const qty = recQty > 0 ? recQty : qtyFloor(locAmt / buyPt, sym);
-    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    const maxQty = qtyFloor(locAmt / buyPt, sym);
+    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '별지점 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${d}` });
+    setOrderDraft({ label: '별지점 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${d}`, maxQty, allocAmt: locAmt });
   };
 
   const openAvgLocOrder = () => {
     if (!s || !hasPos) return;
     const avgPt = s.avg - conf(sym).tick;
-    const qty = recQty > 0 ? recQty : qtyFloor((nb / 2) / avgPt, sym);
-    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    if (avgPt <= 0) return alert('평단가를 계산할 수 없습니다.');
+    const allocAmt = nb / 2;
+    const maxQty = qtyFloor(allocAmt / avgPt, sym);
+    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${d}` });
+    setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${d}`, maxQty, allocAmt });
   };
 
   const openBuyLimitOrder = () => {
     if (!s || !hasPos) return;
     const bpr = bPrice(s.avg, sym, s.div, s.T);
     const buyPt = bpr - conf(sym).tick;
+    if (buyPt <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
     const isSecHalf = s.T >= s.div / 2;
     const locAmt = isSecHalf ? nb : nb / 2;
-    const qty = recQty > 0 ? recQty : qtyFloor(locAmt / buyPt, sym);
-    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    const maxQty = qtyFloor(locAmt / buyPt, sym);
+    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '별지점 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-BYEOL-${d}` });
+    setOrderDraft({ label: '별지점 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-BYEOL-${d}`, maxQty, allocAmt: locAmt });
   };
 
   const openAvgLimitOrder = () => {
     if (!s || !hasPos) return;
     const avgPt = s.avg - conf(sym).tick;
-    const qty = recQty > 0 ? recQty : qtyFloor((nb / 2) / avgPt, sym);
-    if (qty <= 0) return alert('권장 수량을 계산할 수 없습니다.');
+    if (avgPt <= 0) return alert('평단가를 계산할 수 없습니다.');
+    const allocAmt = nb / 2;
+    const maxQty = qtyFloor(allocAmt / avgPt, sym);
+    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '평단가 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-AVG-${d}` });
+    setOrderDraft({ label: '평단가 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-AVG-${d}`, maxQty, allocAmt });
   };
 
   const openQuarterSellOrder = () => {
     if (!s || !hasPos) return;
     const price = bPrice(s.avg, sym, s.div, s.T);
-    const qty = qtyFloor(s.shares * 0.25, sym);
-    if (qty <= 0) return alert('보유 수량이 너무 적습니다.');
+    const maxQty = qtyFloor(s.shares * 0.25, sym);
+    if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-SELL-QUARTER-${d}` });
+    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-QUARTER-${d}`, maxQty });
   };
 
   const openLimitSellOrder = () => {
     if (!s || !hasPos) return;
     const price = ftPrice(s.avg, sym);
     const quarterQty = qtyFloor(s.shares * 0.25, sym);
-    const qty = parseFloat((s.shares - quarterQty).toFixed(6));
-    if (qty <= 0) return alert('보유 수량이 너무 적습니다.');
+    const maxQty = parseFloat((s.shares - quarterQty).toFixed(6));
+    if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '지정가매도 주문 (¾)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-SELL-LIMIT-${d}` });
+    setOrderDraft({ label: '지정가매도 주문 (¾)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-LIMIT-${d}`, maxQty });
   };
 
   const checkRevExit = useCallback(() => {
@@ -1130,9 +1137,59 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                 <span className="text-xs text-muted-foreground">주문 유형</span>
                 <span className="font-mono">{orderDraft.timeInForce === 'CLS' ? 'LOC (장 마감 지정가)' : '지정가'}</span>
               </div>
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-xs text-muted-foreground">수량</span>
-                <span className="font-mono font-semibold">{orderDraft.quantity}{conf(sym).unit}</span>
+              <div className="flex flex-col px-4 py-2 gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">수량</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step={conf(sym).decimals ? Math.pow(10, -conf(sym).decimals) : 1}
+                      value={orderDraft.quantity}
+                      onChange={e => setOrderDraft(d => d ? { ...d, quantity: e.target.value } : null)}
+                      className="w-24 bg-input border border-border rounded px-2 py-1 text-sm font-mono text-right outline-none focus:border-ring"
+                    />
+                    <span className="text-xs text-muted-foreground">{conf(sym).unit}</span>
+                  </div>
+                </div>
+                {(() => {
+                  const qty = parseFloat(orderDraft.quantity) || 0;
+                  const price = parseFloat(orderDraft.price);
+                  if (orderDraft.side === 'BUY' && orderDraft.allocAmt) {
+                    const isLoc = orderDraft.timeInForce === 'CLS';
+                    const cost = qty * price;
+                    const isOver = !isLoc && qty > 0 && cost > orderDraft.allocAmt;
+                    return (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground/60">배정금액</span>
+                          <span className="text-xs text-muted-foreground/60">
+                            {f(orderDraft.allocAmt)}{isLoc ? ' (LOC: 종가 체결)' : ''}
+                          </span>
+                        </div>
+                        {isOver && (
+                          <p className="text-xs text-destructive font-semibold">
+                            배정금액 초과 — {qty}{conf(sym).unit} × {f(price)} = {f(cost)}
+                          </p>
+                        )}
+                      </>
+                    );
+                  }
+                  const qty2 = parseFloat(orderDraft.quantity) || 0;
+                  return orderDraft.maxQty > 0 ? (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground/60">전략 한도</span>
+                        <span className="text-xs text-muted-foreground/60">최대 {orderDraft.maxQty}{conf(sym).unit}</span>
+                      </div>
+                      {qty2 > orderDraft.maxQty && (
+                        <p className="text-xs text-destructive font-semibold">
+                          전략 한도 초과 — 최대 {orderDraft.maxQty}{conf(sym).unit}까지 권장됩니다
+                        </p>
+                      )}
+                    </>
+                  ) : null;
+                })()}
               </div>
               <div className="flex justify-between px-4 py-2.5">
                 <span className="text-xs text-muted-foreground">가격</span>
