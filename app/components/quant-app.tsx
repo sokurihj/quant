@@ -146,6 +146,9 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
   const half = nb / 2;
   const avgPt = parseFloat((s.avg - c.tick).toFixed(2));
   const isSecondHalf = s.T >= s.div / 2;
+  const gap = (bpr - s.avg) / 2;
+  const step3Pt = parseFloat((avgPt - gap).toFixed(2));
+  const step4Pt = parseFloat((avgPt - 2 * gap).toFixed(2));
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-4 py-2 border-b border-border bg-muted/40">
@@ -165,16 +168,38 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
           <span className="font-mono text-sm font-semibold text-primary">{f(isSecondHalf || sym === 'BTC' ? nb : half)}</span>
         </div>
         {!isSecondHalf && sym !== 'BTC' && (
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
-              <div>
-                <p className="font-mono text-sm font-semibold">{fd(avgPt)} 이하 LOC</p>
-                <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
+          <>
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
+                <div>
+                  <p className="font-mono text-sm font-semibold">{fd(avgPt)} 이하 LOC</p>
+                  <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
+                </div>
               </div>
+              <span className="font-mono text-sm font-semibold text-primary">{f(half)}</span>
             </div>
-            <span className="font-mono text-sm font-semibold text-primary">{f(half)}</span>
-          </div>
+            <div className="flex items-center justify-between px-4 py-3 opacity-55">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold border border-border text-muted-foreground px-2 py-0.5 rounded">단계 3</span>
+                <div>
+                  <p className="font-mono text-sm font-semibold">{fd(step3Pt)} 이하 LOC</p>
+                  <p className="text-xs text-muted-foreground">평단 −{(bp / 2).toFixed(0)}% · 폭락 대비</p>
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground">추가 주문</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 opacity-55">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold border border-border text-muted-foreground px-2 py-0.5 rounded">단계 4</span>
+                <div>
+                  <p className="font-mono text-sm font-semibold">{fd(step4Pt)} 이하 LOC</p>
+                  <p className="text-xs text-muted-foreground">평단 −{bp.toFixed(0)}% · 폭락 대비</p>
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground">추가 주문</span>
+            </div>
+          </>
         )}
       </div>
     </div>

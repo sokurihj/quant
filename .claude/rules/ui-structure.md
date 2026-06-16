@@ -61,6 +61,14 @@
 - `TargetCards`에 `revByeol` prop 전달 → 상단 리버스 별지점 카드에 실시간 표시
 - 별지점 입력란 옆 "5일평균" 버튼 → `/api/toss/candles?symbol=` 호출해 자동 채움 (BTC 제외, 주식만)
 
+## LOC 가이드 단계별 표시 (Next.js, LocGuide)
+- 전반전(`!isSecondHalf`) + BTC 제외 조건에서 **별지점·평단가 행 아래에 단계3·단계4 행 추가 표시**
+- `gap = (bpr - s.avg) / 2` — 별지점-평단가 간격의 절반
+- `step3Pt = avgPt - gap` (평단 −bp/2%) / `step4Pt = avgPt - 2×gap` (평단 −bp%)
+- `opacity-55`로 흐리게 표시 — 전략 필수 주문(별지점/평단가)과 시각적으로 구분
+- 오른쪽에 금액 대신 "추가 주문" 레이블 — 1회 매수금액에 포함되지 않는 선택적 주문임을 표시
+- 후반전·BTC에서는 표시 안 함
+
 ## 토스증권 API 연동 (Next.js)
 - 매수가 입력란 옆 "현재가" 버튼 → `/api/toss/price?symbol=` 호출해 자동 채움 (BTC 제외, 주식만)
 - API route가 서버에서 `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET`으로 토큰을 발급해 클라이언트에 Secret 미노출
