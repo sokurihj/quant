@@ -68,11 +68,14 @@
 - HYNIX2X 등 국내 종목은 `toss.ts`의 `SYMBOL_MAP`으로 토스 종목코드로 자동 변환 (HYNIX2X→0195S0)
 
 ## 토스증권 주문 전송 (Next.js, 매수·매도 탭)
-- BTC 제외, 포지션(hasPos) 있을 때만 주문 버튼 표시
+- BTC 제외, `hasPos || isFirst` 조건일 때 주문 버튼 표시
+  - `isFirst`: `shares === 0 && avg === 0 && buyPriceNum > 0` — 포지션 없지만 현재가 입력된 첫 진입 상태
+  - `isFirst`일 때 섹션 제목에 "— 첫 진입 (현재가 기준)" 표시
 - **매수 탭**
-  - USD 심볼(TQQQ/SOXL): LOC 섹션(별지점 LOC, 평단가 LOC*) + 지정가 섹션(별지점 지정가, 평단가 지정가*)
+  - USD 심볼(TQQQ/SOXL): LOC 섹션(별지점/현재가 LOC, 평단가 LOC*) + 지정가 섹션(별지점/현재가 지정가, 평단가 지정가*)
   - KRW 심볼(HYNIX2X): 지정가 섹션만 (LOC 미지원)
-  - *전반전(`T < div/2`)에만 평단가 버튼 표시
+  - *전반전(`T < div/2`)이고 `hasPos`인 경우에만 평단가 버튼 표시 (`isFirst`이면 평단가 버튼 없음)
+  - `isFirst`일 때: 버튼 라벨 "현재가 LOC"/"현재가 지정가", 가격=`buyPriceNum`, 배정금액=`nb` 전액
 - **매도 탭**: 쿼터매도 주문 (별지점 지정가, 보유량 ¼) + 지정가매도 주문 (목표가, 보유량 − 쿼터수량)
   - 지정가매도 수량 = `shares - qtyFloor(shares * 0.25, sym)` (단순 ¾ 곱셈 시 1주 누락 방지)
 - 버튼 클릭 → `orderDraft` state에 주문 정보 저장 → 확인 모달 표시 → "주문 전송" 클릭 → `POST /api/toss/order`

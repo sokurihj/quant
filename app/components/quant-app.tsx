@@ -393,6 +393,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   const recAmt = tdelta === 0.5 ? nb / 2 : nb;
   const buyPriceNum = parseFloat(buyPrice);
   const recQty = buyPriceNum > 0 && nb > 0 ? qtyFloor(recAmt / buyPriceNum, sym) : 0;
+  // 첫 진입: 포지션 없지만 현재가 입력됨 → 주문 버튼 표시
+  const isFirst = !!s && s.shares === 0 && s.avg === 0 && buyPriceNum > 0 && sym !== 'BTC';
 
   const handleInit = useCallback((capital: number, division: 10 | 20 | 40) => {
     setState(sym, defState(capital, division));
@@ -588,16 +590,24 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   }, [orderDraft, sym]);
 
   const openBuyLocOrder = () => {
-    if (!s || !hasPos) return;
-    const bpr = bPrice(s.avg, sym, s.div, s.T);
-    const buyPt = bpr - conf(sym).tick;
-    if (buyPt <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
-    const isSecHalf = s.T >= s.div / 2;
-    const locAmt = isSecHalf ? nb : nb / 2;
-    const maxQty = qtyFloor(locAmt / buyPt, sym);
+    if (!s || (!hasPos && !isFirst)) return;
+    let orderPrice: number, locAmt: number, label: string;
+    if (isFirst) {
+      orderPrice = buyPriceNum;
+      locAmt = nb;
+      label = '현재가 LOC 매수';
+    } else {
+      const bpr = bPrice(s.avg, sym, s.div, s.T);
+      orderPrice = bpr - conf(sym).tick;
+      if (orderPrice <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
+      const isSecHalf = s.T >= s.div / 2;
+      locAmt = isSecHalf ? nb : nb / 2;
+      label = '별지점 LOC 매수';
+    }
+    const maxQty = qtyFloor(locAmt / orderPrice, sym);
     const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '별지점 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${d}`, maxQty, allocAmt: locAmt });
+    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${d}`, maxQty, allocAmt: locAmt });
   };
 
   const openAvgLocOrder = () => {
@@ -612,16 +622,24 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
   };
 
   const openBuyLimitOrder = () => {
-    if (!s || !hasPos) return;
-    const bpr = bPrice(s.avg, sym, s.div, s.T);
-    const buyPt = bpr - conf(sym).tick;
-    if (buyPt <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
-    const isSecHalf = s.T >= s.div / 2;
-    const locAmt = isSecHalf ? nb : nb / 2;
-    const maxQty = qtyFloor(locAmt / buyPt, sym);
+    if (!s || (!hasPos && !isFirst)) return;
+    let orderPrice: number, locAmt: number, label: string;
+    if (isFirst) {
+      orderPrice = buyPriceNum;
+      locAmt = nb;
+      label = '현재가 지정가 매수';
+    } else {
+      const bpr = bPrice(s.avg, sym, s.div, s.T);
+      orderPrice = bpr - conf(sym).tick;
+      if (orderPrice <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
+      const isSecHalf = s.T >= s.div / 2;
+      locAmt = isSecHalf ? nb : nb / 2;
+      label = '별지점 지정가 매수';
+    }
+    const maxQty = qtyFloor(locAmt / orderPrice, sym);
     const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '별지점 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(buyPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-BYEOL-${d}`, maxQty, allocAmt: locAmt });
+    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-BYEOL-${d}`, maxQty, allocAmt: locAmt });
   };
 
   const openAvgLimitOrder = () => {
@@ -834,15 +852,15 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   ? '별지점 이하인 날 매수 후 체결가를 입력하세요. (T +1 고정)'
                   : '실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.'}
               </p>
-              {hasPos && sym !== 'BTC' && (
+              {(hasPos || isFirst) && sym !== 'BTC' && (
                 <div className="border-t border-border pt-3 flex flex-col gap-2">
-                  <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
+                  <p className="text-xs text-muted-foreground">토스증권 주문 전송{isFirst ? ' — 첫 진입 (현재가 기준)' : ''}</p>
                   {cur === 'USD' && (
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs text-muted-foreground/60">LOC (장 마감 지정가)</p>
                       <div className="flex gap-2">
-                        <button onClick={openBuyLocOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">별지점 LOC</button>
-                        {s.T < s.div / 2 && (
+                        <button onClick={openBuyLocOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">{isFirst ? '현재가 LOC' : '별지점 LOC'}</button>
+                        {hasPos && s.T < s.div / 2 && (
                           <button onClick={openAvgLocOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 LOC</button>
                         )}
                       </div>
@@ -851,8 +869,8 @@ export default function QuantApp({ sym }: { sym: Symbol }) {
                   <div className="flex flex-col gap-1.5">
                     <p className="text-xs text-muted-foreground/60">지정가</p>
                     <div className="flex gap-2">
-                      <button onClick={openBuyLimitOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">별지점 지정가</button>
-                      {s.T < s.div / 2 && (
+                      <button onClick={openBuyLimitOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">{isFirst ? '현재가 지정가' : '별지점 지정가'}</button>
+                      {hasPos && s.T < s.div / 2 && (
                         <button onClick={openAvgLimitOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 지정가</button>
                       )}
                     </div>
