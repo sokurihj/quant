@@ -50,6 +50,18 @@ export const setLastQP = (sym: Symbol, v: number) => {
   else localStorage.setItem(`lqp_${sym}`, String(v));
 };
 
+// 현재 심볼의 로컬 데이터를 Supabase에 강제 업로드
+export const pushToSupabase = async (sym: Symbol): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  const keys = [`st_${sym}`, `hist_${sym}`, `journal_${sym}`, `undo_${sym}`] as const;
+  await Promise.all(keys.map(key => {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return Promise.resolve();
+    const value = JSON.parse(raw);
+    return fetch('/api/kv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) });
+  }));
+};
+
 export const saveSnapshot = (sym: Symbol) => {
   const state = getState(sym);
   if (!state) return;

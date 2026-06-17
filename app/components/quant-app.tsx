@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName, SymbolState, HistoryEntry, JournalEntry } from '@/lib/types';
 import { defState, bPct, bPrice, ftPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf } from '@/lib/calc';
-import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, getLastQP, setLastQP } from '@/lib/storage';
+import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP } from '@/lib/storage';
 
 // ── 서브 컴포넌트 ──────────────────────────────────────────────────────────
 
@@ -389,6 +389,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [mounted, setMounted] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'ok' | 'error' | 'empty'>('idle');
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [orderDraft, setOrderDraft] = useState<{
     label: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS';
     price: string; quantity: string; clientOrderId: string;
@@ -1279,6 +1281,31 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   {syncStatus === 'error' && <p className="text-xs text-destructive">동기화 실패 — 다시 시도하세요.</p>}
                 </div>
               )}
+              <div className="border-t border-border pt-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">클라우드 업로드</p>
+                    <p className="text-xs text-muted-foreground">이 기기의 데이터를 클라우드에 강제 저장합니다</p>
+                  </div>
+                  <button onClick={async () => {
+                    setUploadLoading(true);
+                    setUploadStatus('idle');
+                    try {
+                      await pushToSupabase(sym);
+                      setUploadStatus('ok');
+                    } catch {
+                      setUploadStatus('error');
+                    } finally {
+                      setUploadLoading(false);
+                    }
+                  }} disabled={uploadLoading}
+                    className="bg-secondary text-secondary-foreground border border-border px-4 py-2 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0">
+                    {uploadLoading ? '업로드 중...' : '업로드'}
+                  </button>
+                </div>
+                {uploadStatus === 'ok' && <p className="text-xs text-primary">업로드 완료 — 다른 기기에서 새로고침하면 반영됩니다.</p>}
+                {uploadStatus === 'error' && <p className="text-xs text-destructive">업로드 실패 — 다시 시도하세요.</p>}
+              </div>
             </div>
           )}
         </div>
