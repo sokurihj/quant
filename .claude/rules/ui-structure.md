@@ -88,7 +88,7 @@
   - 지정가매도 수량 = `shares - qtyFloor(shares * 0.25, sym)` (단순 ¾ 곱셈 시 1주 누락 방지)
 - 버튼 클릭 → `orderDraft` state에 주문 정보 저장 → 확인 모달 표시 → "주문 전송" 클릭 → `POST /api/toss/order`
 - `orderDraft` 구조: `{ label, side, orderType:'LIMIT', timeInForce?:'CLS', price, quantity, clientOrderId, maxQty, allocAmt? }`
-  - `clientOrderId` 형식: `${sym}-${side}-${type}-${YYYY-MM-DD}` (중복 주문 방지)
+  - `clientOrderId` 형식: LOC 매수/지정가 매수·매도 = `${sym}-${side}-${type}-${YYYY-MM-DD}` (하루 1회 중복 방지), 쿼터매도 = `${sym}-SELL-QUARTER-${Date.now()}` (취소 후 재주문 허용)
   - `maxQty`: 전략 공식 기준 최대 수량 — 매수: `qtyFloor(allocAmt / price, sym)`, 매도: 쿼터=`qtyFloor(shares×0.25, sym)`, 지정가=`shares−quarterQty`
   - `allocAmt`: 매수 주문만 보유 — 이번 회차 배정금액 (별지점=`nb` or `nb/2`, 평단가=`nb/2`)
 - 모달 수량 필드는 editable input — 자동 계산값이 기본 채워지고 직접 수정 가능
@@ -113,7 +113,7 @@
   - Toss API 응답 구조: `{ result: { orders: [...] } }` (items 아님)
   - 미체결 상태는 `status: 'PENDING'` (조회 파라미터는 `status=OPEN`)
 - 주문 행: `LOC매수 / 지정매수 / 지정매도 | 가격 × 수량` + "취소" 버튼
-- "취소" 버튼 → `DELETE /api/toss/order/:orderId` → 성공 시 해당 항목 목록에서 제거
+- "취소" 버튼 → `DELETE /api/toss/order/:orderId` (프록시가 내부적으로 `POST /api/v1/orders/:orderId/cancel` 호출) → 성공 시 해당 항목 목록에서 제거
 
 ## 계좌 동기화 (Next.js, 설정 탭)
 - 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용

@@ -204,9 +204,10 @@ export async function cancelOrder(orderId: string): Promise<void> {
 
   const token = await getToken()
   const accountSeq = await getAccountSeq(token)
-  const res = await fetch(`${TOSS_BASE}/api/v1/orders/${orderId}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}`, 'X-Tossinvest-Account': String(accountSeq) },
+  const res = await fetch(`${TOSS_BASE}/api/v1/orders/${orderId}/cancel`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'X-Tossinvest-Account': String(accountSeq), 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({})) as { error?: { message?: string } | string }

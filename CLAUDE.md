@@ -45,7 +45,7 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
     toss.ts             ← 토스증권 Open API 헬퍼 — TOSS_PROXY_URL 설정 시 프록시 경유, 미설정 시 직접 호출
                            fetchPrice / fetchFiveDayAvg / fetchHoldings / createOrder(OrderParams)
                            fetchOpenOrders(symbol) — 미체결 주문 조회 (Toss API: GET /api/v1/orders?status=OPEN, result.orders 배열)
-                           cancelOrder(orderId) — 주문 취소 (Toss API: DELETE /api/v1/orders/:orderId)
+                           cancelOrder(orderId) — 주문 취소 (Toss API: POST /api/v1/orders/:orderId/cancel)
                            SYMBOL_MAP으로 앱 심볼 → 토스 종목코드 변환 (HYNIX2X→0195S0)
                            주문 에러 구조: { error: { code, message } } — message 필드로 추출
   app/
@@ -61,13 +61,14 @@ tossapi/
   server.js             ← Oracle Cloud VM에서 실행하는 토스 API 프록시 서버 (포트 3001)
                            GET /price?symbol= / GET /candles?symbol= / GET /holdings?symbol=
                            GET /orders?symbol= (미체결 주문 조회, symbol 필터는 선택)
-                           POST /order (주문 전송) / DELETE /order/:orderId (주문 취소)
+                           POST /order (주문 전송) / POST /order/:orderId/cancel (주문 취소)
                            PROXY_SECRET 환경변수로 인증; accountSeq 모듈 레벨 캐싱
-                           **실제 실행 경로: /home/ubuntu/proxy/server.js** (서비스 WorkingDirectory)
+                           **실제 실행 경로: /home/ubuntu/proxy/server.js**
+                           **프로세스 관리: pm2** (무중단 배포 지원)
                            로컬 tossapi/server.js 수정 후 배포 시:
                              scp -i ~/.ssh/oracle-vm.key tossapi/server.js ubuntu@161.33.168.105:~/proxy/server.js
-                             ssh -i ~/.ssh/oracle-vm.key ubuntu@161.33.168.105 "sudo systemctl restart toss-proxy"
-                           배포 전 반드시 경로 확인: sudo systemctl cat toss-proxy | grep WorkingDirectory
+                             ssh -i ~/.ssh/oracle-vm.key ubuntu@161.33.168.105 "pm2 reload toss-proxy"
+                           (systemctl restart 대신 pm2 reload 사용 — 무중단, 기존 요청 처리 완료 후 교체)
 
 index.html              ← 레거시 바닐라 JS UI (localStorage, 서버 불필요)
 trade.py                ← 터미널 CLI
@@ -89,7 +90,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.local`)
 - 토스 API 호출 구조: `TOSS_PROXY_URL`이 설정되면 Oracle VM 프록시 경유, 미설정이면 `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET`으로 직접 호출 (로컬 개발용)
 - Vercel 환경변수: `TOSS_PROXY_URL=http://161.33.168.105:3001`, `PROXY_SECRET` (프록시 인증키)
-- Oracle VM(161.33.168.105)에서 `tossapi/server.js`가 systemd 서비스로 상시 실행 중
+- Oracle VM(161.33.168.105)에서 `tossapi/server.js`가 pm2로 상시 실행 중
 - 토스증권 토큰은 Oracle VM 프록시 내 모듈 레벨 변수로 캐싱, 만료 1분 전 자동 갱신
 
 ## Next.js 앱 주요 패턴
@@ -107,3 +108,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 
 ## 문서
 기능 추가·변경 시 `docs/README.md` 함께 업데이트
+
+## 토스증권 API 참조
+토스증권 API 관련 수정·확인이 필요할 때는 반드시 `tossapi/api` 파일(OpenAPI 3.1 스펙, 242KB JSON)을 먼저 확인할 것.
+엔드포인트 경로, 요청/응답 구조, 에러 코드 등 공식 스펙은 이 파일이 최종 기준이다.
