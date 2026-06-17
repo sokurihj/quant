@@ -706,7 +706,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const maxQty = qtyFloor(s.shares * 0.25, sym);
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
     const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-QUARTER-${d}`, maxQty });
+    const isLoc = conf(sym).currency === 'USD' && sym !== 'BTC';
+    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', ...(isLoc ? { timeInForce: 'CLS' as const } : {}), price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-QUARTER-${d}`, maxQty });
   };
 
   const openLimitSellOrder = () => {
@@ -915,7 +916,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         : openOrders.map(order => (
                             <div key={order.orderId} className="flex items-center justify-between gap-2">
                               <span className="text-xs font-mono text-muted-foreground">
-                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : '지정매도'}{' '}
+                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}{' '}
                                 {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
                               </span>
                               <button
@@ -1056,7 +1057,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         : openOrders.map(order => (
                             <div key={order.orderId} className="flex items-center justify-between gap-2">
                               <span className="text-xs font-mono text-muted-foreground">
-                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : '지정매도'}{' '}
+                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}{' '}
                                 {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
                               </span>
                               <button
