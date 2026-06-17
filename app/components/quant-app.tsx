@@ -630,10 +630,11 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       const res = await fetch(`/api/toss/order/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
       const data = await res.json() as { error?: string };
       if (!res.ok) {
-        // 취소 실패 시 목록 갱신 (이미 체결됐을 가능성)
-        const refreshRes = await fetch(`/api/toss/order?symbol=${sym}`);
-        const refreshData = await refreshRes.json() as { orders?: OpenOrder[] };
-        if (refreshRes.ok) setOpenOrders(refreshData.orders ?? []);
+        // 404 = 주문이 이미 없음 (체결됐거나 중복으로 자동 취소됨) — 조용히 제거
+        if (res.status === 404) {
+          setOpenOrders(openOrders ? openOrders.filter(o => o.orderId !== orderId) : null);
+          return;
+        }
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       setOpenOrders(openOrders ? openOrders.filter(o => o.orderId !== orderId) : null);
