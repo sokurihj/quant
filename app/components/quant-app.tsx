@@ -621,18 +621,28 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   }, [sym]);
 
   const cancelOrderById = useCallback(async (orderId: string) => {
+    if (!orderId || orderId === 'undefined') {
+      alert('주문 ID가 없습니다. 목록을 새로 고침 후 다시 시도하세요.');
+      return;
+    }
     setCancellingId(orderId);
     try {
-      const res = await fetch(`/api/toss/order/${orderId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/toss/order/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
       const data = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        // 취소 실패 시 목록 갱신 (이미 체결됐을 가능성)
+        const refreshRes = await fetch(`/api/toss/order?symbol=${sym}`);
+        const refreshData = await refreshRes.json() as { orders?: OpenOrder[] };
+        if (refreshRes.ok) setOpenOrders(refreshData.orders ?? []);
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
       setOpenOrders(openOrders ? openOrders.filter(o => o.orderId !== orderId) : null);
     } catch (e) {
-      alert(`취소 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      alert(`취소 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}\n\n이미 체결됐거나 취소 마감 시간이 지났을 수 있습니다.`);
     } finally {
       setCancellingId(null);
     }
-  }, []);
+  }, [sym, openOrders, setOpenOrders]);
 
   const sendOrder = useCallback(async () => {
     if (!orderDraft) return;
