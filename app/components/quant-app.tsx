@@ -381,6 +381,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [setRem, setSetRem] = useState('');
   const [setCapital, setSetCapital] = useState('');
   const [setTotal, setSetTotal] = useState('');
+  const [setAvg, setSetAvg] = useState('');
+  const [setShares, setSetShares] = useState('');
   const [lastQuarterProceeds, setLastQuarterProceeds] = useState(0);
   const [setDiv, setSetDiv] = useState<10 | 20 | 40>(40);
 
@@ -1228,6 +1230,37 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   refresh();
                   alert(`총 자본이 ${f(val)}으로 수정되었습니다.`);
                 }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">총 자본 수정</button>
+              </div>
+              <div className="border-t border-border pt-4 flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">평단가 직접 수정 ({unit})</label>
+                    <input type="number" value={setAvg} onChange={e => setSetAvg(e.target.value)}
+                      placeholder={s?.avg ? s.avg.toFixed(2) : '0'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">보유수량 직접 수정 (BTC)</label>
+                    <input type="number" value={setShares} onChange={e => setSetShares(e.target.value)}
+                      placeholder={s?.shares ? s.shares.toFixed(6) : '0'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">거래소 실제 수치와 다를 때 수동으로 맞춥니다. T값·잔여자본은 유지됩니다.</p>
+                <button onClick={() => {
+                  const avg = parseFloat(setAvg);
+                  const shares = parseFloat(setShares);
+                  if ((!avg && avg !== 0) && (!shares && shares !== 0)) return alert('평단가 또는 보유수량을 입력하세요.');
+                  const cur = getState(sym);
+                  if (!cur) return;
+                  const next = { ...cur };
+                  if (avg > 0) next.avg = avg;
+                  if (shares >= 0) next.shares = shares;
+                  saveSnapshot(sym);
+                  setState(sym, next);
+                  setSetAvg('');
+                  setSetShares('');
+                  refresh();
+                  alert('수정됐습니다. 되돌리기로 복원 가능합니다.');
+                }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">평단가·보유수량 수정</button>
               </div>
               {sym !== 'BTC' && (
                 <div className="border-t border-border pt-4 flex flex-col gap-3">
