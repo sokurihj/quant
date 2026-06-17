@@ -18,6 +18,9 @@ export const bPrice = (avg: number, sym: Symbol, div: number, T: number) =>
 export const ftPrice = (avg: number, sym: Symbol) =>
   avg * (1 + CONF[sym].target_pct / 100);
 
+export const targetPrice = (price: number, sym: Symbol) =>
+  CONF[sym].currency === 'KRW' ? Math.floor(price / 10) * 10 : price;
+
 export const nextAmt = (rem: number, div: number, T: number) =>
   (div - T) <= 0 ? 0 : rem / (div - T);
 

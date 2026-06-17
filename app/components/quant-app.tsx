@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName, SymbolState, HistoryEntry, JournalEntry } from '@/lib/types';
-import { defState, bPct, bPrice, ftPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf } from '@/lib/calc';
+import { defState, bPct, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf } from '@/lib/calc';
 import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP } from '@/lib/storage';
 
 // ── 서브 컴포넌트 ──────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ function StatusBar({ s, sym }: { s: SymbolState; sym: Symbol }) {
 function TargetCards({ s, sym, revByeol }: { s: SymbolState; sym: Symbol; revByeol: string }) {
   const c = conf(sym);
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, c.currency);
-  const fd = (n: number) => f(c.currency === 'KRW' ? Math.floor(n / 10) * 10 : n);
+  const fd = (n: number) => f(targetPrice(n, sym));
   const hasPos = s.avg > 0 && s.shares > 0;
   const isReverse = s.mode === 'reverse';
 
@@ -137,7 +137,7 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
   if (s.mode === 'reverse' || !(s.avg > 0 && s.shares > 0)) return null;
   const c = conf(sym);
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, c.currency);
-  const fd = (n: number) => f(c.currency === 'KRW' ? Math.floor(n / 10) * 10 : n);
+  const fd = (n: number) => f(targetPrice(n, sym));
   const tickStr = c.currency === 'KRW' ? `₩${c.tick}` : `$${c.tick}`;
   const bp = bPct(sym, s.div, s.T);
   const bpr = bPrice(s.avg, sym, s.div, s.T);
@@ -489,7 +489,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     saveSnapshot(sym);
     const inputPrice = parseFloat(sellPrice);
     const price = inputPrice > 0 ? inputPrice
-      : type === 'quarter' ? bPrice(cur.avg, sym, cur.div, cur.T) : ftPrice(cur.avg, sym);
+      : targetPrice(type === 'quarter' ? bPrice(cur.avg, sym, cur.div, cur.T) : ftPrice(cur.avg, sym), sym);
     const hist = getHist(sym);
     if (type === 'quarter') {
       const sell = qtyFloor(cur.shares * 0.25, sym);
@@ -714,7 +714,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
 
   const openQuarterSellOrder = () => {
     if (!s || !hasPos) return;
-    const price = bPrice(s.avg, sym, s.div, s.T);
+    const price = targetPrice(bPrice(s.avg, sym, s.div, s.T), sym);
     const maxQty = qtyFloor(s.shares * 0.25, sym);
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
     const isLoc = conf(sym).currency === 'USD' && sym !== 'BTC';
@@ -723,7 +723,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
 
   const openLimitSellOrder = () => {
     if (!s || !hasPos) return;
-    const price = ftPrice(s.avg, sym);
+    const price = targetPrice(ftPrice(s.avg, sym), sym);
     const quarterQty = qtyFloor(s.shares * 0.25, sym);
     const maxQty = parseFloat((s.shares - quarterQty).toFixed(6));
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
@@ -1040,11 +1040,11 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               <div className="bg-muted/40 border border-border rounded p-3 flex flex-col gap-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-xs text-muted-foreground">쿼터매도 목표가</span>
-                  <span className="font-mono">{hasPos ? f(bPrice(s.avg, sym, s.div, s.T)) : '—'}</span>
+                  <span className="font-mono">{hasPos ? f(targetPrice(bPrice(s.avg, sym, s.div, s.T), sym)) : '—'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-xs text-muted-foreground">지정가매도 목표가 (잔여 ¾)</span>
-                  <span className="font-mono">{hasPos ? f(ftPrice(s.avg, sym)) : '—'}</span>
+                  <span className="font-mono">{hasPos ? f(targetPrice(ftPrice(s.avg, sym), sym)) : '—'}</span>
                 </div>
               </div>
               <div>

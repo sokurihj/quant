@@ -39,7 +39,7 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
     quant-app.tsx       ← "use client" 메인 컴포넌트. 전체 상태·핸들러 보유
   lib/
     types.ts            ← TypeScript 타입 (SymbolState, HistoryEntry 등)
-    calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt, qtyFloor 등)
+    calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, targetPrice, nextAmt, qtyFloor 등)
     storage.ts          ← localStorage read/write + Supabase 동기화 (getState, setHist 등)
     supabase.ts         ← Supabase 클라이언트 (환경변수에서 URL/key 읽음)
     toss.ts             ← 토스증권 Open API 헬퍼 — TOSS_PROXY_URL 설정 시 프록시 경유, 미설정 시 직접 호출
@@ -104,6 +104,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 보관하는 state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; `lqp_${sym}` localStorage 키로 영속화되므로 심볼 전환 후에도 유지됨; 재투입 버튼 클릭 시 0으로 초기화(`setLastQP(sym, 0)`)
 - `total`(총 자본)은 표시 전용 — 모든 매수금액 계산은 `rem`만 사용. 설정 탭에서 직접 수정 가능; 보유주식이 있으면 `rem + shares × avg` 추정값을 클릭 한 번으로 채울 수 있음
 - `conf(sym).decimals` / `conf(sym).unit`: 심볼별 수량 소수점 자리수(주식 0, BTC 6)와 단위('주' / 'BTC') — `qtyFloor(qty, sym)`로 sym-aware 수량 내림 처리
+- `targetPrice(price, sym)`: 매도 목표가 표시·자동 기록·매도 주문 가격 정규화. KRW(HYNIX2X)는 상단 목표 카드와 맞춰 10원 단위 내림, USD/BTC는 원값 유지
 - BTC 탭은 T+0.5(절반 체결) 옵션 없음 — 항상 T+1 고정; 매수가 입력 시 권장 BTC 수량 자동계산
 - 토스 주문 `clientOrderId`는 멱등성 키로 10분간 재사용되므로, 주문 모달 생성 시 `Date.now()` 기반 고유값을 붙여 취소 후 재주문이 새 주문으로 접수되게 함
 
