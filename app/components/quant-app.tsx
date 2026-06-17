@@ -220,8 +220,8 @@ function TradeHistory({ sym, onUndo, tab }: { sym: Symbol; onUndo: () => void; t
   const undoStack = getUndo(sym);
   const label: Record<string, string> = { buy:'매수', quarter:'쿼터매도', all:'전량매도', rsell:'리버스매도', rbuy:'리버스매수' };
   const color: Record<string, string> = {
-    buy: 'text-emerald-500', quarter: 'text-red-500', all: 'text-red-400',
-    rsell: 'text-red-500', rbuy: 'text-emerald-500',
+    buy: 'text-red-500', quarter: 'text-blue-500', all: 'text-blue-500',
+    rsell: 'text-blue-500', rbuy: 'text-red-500',
   };
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -916,7 +916,9 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         : openOrders.map(order => (
                             <div key={order.orderId} className="flex items-center justify-between gap-2">
                               <span className="text-xs font-mono text-muted-foreground">
-                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}{' '}
+                                <span className={order.side === 'BUY' ? 'text-red-500' : 'text-blue-500'}>
+                                  {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}
+                                </span>{' '}
                                 {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
                               </span>
                               <button
@@ -1057,7 +1059,9 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         : openOrders.map(order => (
                             <div key={order.orderId} className="flex items-center justify-between gap-2">
                               <span className="text-xs font-mono text-muted-foreground">
-                                {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}{' '}
+                                <span className={order.side === 'BUY' ? 'text-red-500' : 'text-blue-500'}>
+                                  {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}
+                                </span>{' '}
                                 {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
                               </span>
                               <button
