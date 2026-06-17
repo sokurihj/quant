@@ -68,7 +68,10 @@ tossapi/
                            로컬 tossapi/server.js 수정 후 배포 시:
                              scp -i ~/.ssh/oracle-vm.key tossapi/server.js ubuntu@161.33.168.105:~/proxy/server.js
                              ssh -i ~/.ssh/oracle-vm.key ubuntu@161.33.168.105 "pm2 reload toss-proxy"
-                           (systemctl restart 대신 pm2 reload 사용 — 무중단, 기존 요청 처리 완료 후 교체)
+                           환경변수 변경이 필요할 때 (최초 설정 또는 갱신):
+                             ssh -i ~/.ssh/oracle-vm.key ubuntu@161.33.168.105
+                             TOSS_CLIENT_ID='값' TOSS_CLIENT_SECRET='값' PROXY_SECRET='값' pm2 restart toss-proxy --update-env && pm2 save
+                           주의: pm2는 환경변수를 자동 상속하지 않으므로 --update-env 없이 restart하면 기존 값 유지, 신규 설정은 반드시 위 명령 사용
 
 index.html              ← 레거시 바닐라 JS UI (localStorage, 서버 불필요)
 trade.py                ← 터미널 CLI
