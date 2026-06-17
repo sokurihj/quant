@@ -194,7 +194,11 @@ export async function cancelOrder(orderId: string): Promise<void> {
       headers: proxyHeaders(),
     })
     const data = await res.json() as { error?: string }
-    if (!res.ok) throw new Error(data.error ?? `취소 실패: ${res.status}`)
+    if (!res.ok) {
+      const err = new Error(data.error ?? `취소 실패: ${res.status}`) as Error & { status: number }
+      err.status = res.status
+      throw err
+    }
     return
   }
 
@@ -208,7 +212,9 @@ export async function cancelOrder(orderId: string): Promise<void> {
     const data = await res.json().catch(() => ({})) as { error?: { message?: string } | string }
     const err = data.error
     const msg = typeof err === 'object' ? err?.message : err ?? `취소 실패: ${res.status}`
-    throw new Error(msg)
+    const e = new Error(msg) as Error & { status: number }
+    e.status = res.status
+    throw e
   }
 }
 

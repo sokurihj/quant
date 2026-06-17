@@ -8,6 +8,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ ok: true })
   } catch (e) {
     const message = e instanceof Error ? e.message : '알 수 없는 오류'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const status = (e as Error & { status?: number }).status ?? 500
+    return NextResponse.json({ error: message }, { status })
   }
 }
