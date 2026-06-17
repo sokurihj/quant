@@ -689,8 +689,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     }
     const maxQty = qtyFloor(locAmt / orderPrice, sym);
     const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
-    const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${d}`, maxQty, allocAmt: locAmt });
+    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${Date.now()}`, maxQty, allocAmt: locAmt });
   };
 
   const openAvgLocOrder = () => {
@@ -700,8 +699,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const allocAmt = nb / 2;
     const maxQty = qtyFloor(allocAmt / avgPt, sym);
     const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
-    const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${d}`, maxQty, allocAmt });
+    setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${Date.now()}`, maxQty, allocAmt });
   };
 
   const openCustomLimitOrder = () => {
@@ -729,8 +727,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const quarterQty = qtyFloor(s.shares * 0.25, sym);
     const maxQty = parseFloat((s.shares - quarterQty).toFixed(6));
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
-    const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '지정가매도 주문 (¾)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-LIMIT-${d}`, maxQty });
+    setOrderDraft({ label: '지정가매도 주문 (¾)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-LIMIT-${Date.now()}`, maxQty });
   };
 
   const checkRevExit = useCallback(() => {
