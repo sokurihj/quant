@@ -719,9 +719,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const price = bPrice(s.avg, sym, s.div, s.T);
     const maxQty = qtyFloor(s.shares * 0.25, sym);
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
-    const d = new Date().toISOString().slice(0, 10);
     const isLoc = conf(sym).currency === 'USD' && sym !== 'BTC';
-    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', ...(isLoc ? { timeInForce: 'CLS' as const } : {}), price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-QUARTER-${d}`, maxQty });
+    setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', ...(isLoc ? { timeInForce: 'CLS' as const } : {}), price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-QUARTER-${Date.now()}`, maxQty });
   };
 
   const openLimitSellOrder = () => {
