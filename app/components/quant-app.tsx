@@ -383,6 +383,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [setTotal, setSetTotal] = useState('');
   const [setAvg, setSetAvg] = useState('');
   const [setShares, setSetShares] = useState('');
+  const [limitPrice, setLimitPrice] = useState('');
+  const [limitPriceLoading, setLimitPriceLoading] = useState(false);
   const [lastQuarterProceeds, setLastQuarterProceeds] = useState(0);
   const [setDiv, setSetDiv] = useState<10 | 20 | 40>(40);
 
@@ -642,8 +644,10 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: sym, ...orderDraft }),
       });
-      const data = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try { data = JSON.parse(text); } catch { /* HTML 오류 페이지 */ }
+      if (!res.ok) throw new Error(data.error ?? `서버 오류 (HTTP ${res.status}) — 배포 환경에서 다시 시도하세요`);
       setOrderStatus('ok');
       setTimeout(() => { setOrderDraft(null); setOrderStatus('idle'); }, 2000);
     } catch (e) {
@@ -686,36 +690,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${d}`, maxQty, allocAmt });
   };
 
-  const openBuyLimitOrder = () => {
+  const openCustomLimitOrder = () => {
     if (!s || (!hasPos && !isFirst)) return;
-    let orderPrice: number, locAmt: number, label: string;
-    if (isFirst) {
-      orderPrice = buyPriceNum;
-      locAmt = nb;
-      label = '현재가 지정가 매수';
-    } else {
-      const bpr = bPrice(s.avg, sym, s.div, s.T);
-      orderPrice = bpr - conf(sym).tick;
-      if (orderPrice <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
-      const isSecHalf = s.T >= s.div / 2;
-      locAmt = isSecHalf ? nb : nb / 2;
-      label = '별지점 지정가 매수';
-    }
-    const maxQty = qtyFloor(locAmt / orderPrice, sym);
+    const orderPrice = parseFloat(limitPrice);
+    if (!orderPrice || orderPrice <= 0) return alert('가격을 입력하세요.');
+    const maxQty = qtyFloor(nb / orderPrice, sym);
     const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
-    const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-BYEOL-${d}`, maxQty, allocAmt: locAmt });
-  };
-
-  const openAvgLimitOrder = () => {
-    if (!s || !hasPos) return;
-    const avgPt = s.avg - conf(sym).tick;
-    if (avgPt <= 0) return alert('평단가를 계산할 수 없습니다.');
-    const allocAmt = nb / 2;
-    const maxQty = qtyFloor(allocAmt / avgPt, sym);
-    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
-    const d = new Date().toISOString().slice(0, 10);
-    setOrderDraft({ label: '평단가 지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-LIMIT-AVG-${d}`, maxQty, allocAmt });
+    const id = `${sym}-BUY-LIMIT-${Date.now()}`;
+    setOrderDraft({ label: '지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: id, maxQty });
   };
 
   const openQuarterSellOrder = () => {
@@ -960,12 +942,24 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   )}
                   <div className="flex flex-col gap-1.5">
                     <p className="text-xs text-muted-foreground/60">지정가</p>
-                    <div className="flex gap-2">
-                      <button onClick={openBuyLimitOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">{isFirst ? '현재가 지정가' : '별지점 지정가'}</button>
-                      {hasPos && s.T < s.div / 2 && (
-                        <button onClick={openAvgLimitOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 지정가</button>
-                      )}
+                    <div className="flex gap-2 items-center">
+                      <input type="number" value={limitPrice} onChange={e => setLimitPrice(e.target.value)}
+                        placeholder="가격 입력" className="flex-1 bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                      <button onClick={async () => {
+                          setLimitPriceLoading(true);
+                          try {
+                            const res = await fetch(`/api/toss/price?symbol=${sym}`);
+                            const data = await res.json();
+                            if (data.price) {
+                              const raw = conf(sym).currency === 'KRW' ? String(Math.round(parseFloat(data.price))) : data.price;
+                              setLimitPrice(raw);
+                            }
+                          } catch {} finally { setLimitPriceLoading(false); }
+                        }} disabled={limitPriceLoading} className="text-xs text-primary hover:underline disabled:opacity-40 shrink-0">
+                          {limitPriceLoading ? '조회 중...' : '현재가'}
+                        </button>
                     </div>
+                    <button onClick={openCustomLimitOrder} className="border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">지정가 주문</button>
                   </div>
                 </div>
               )}
