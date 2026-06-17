@@ -630,16 +630,19 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       const res = await fetch(`/api/toss/order/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
       const data = await res.json() as { error?: string };
       if (!res.ok) {
-        // 404 = 주문이 이미 없음 (체결됐거나 중복으로 자동 취소됨) — 조용히 제거
-        if (res.status === 404) {
-          setOpenOrders(openOrders ? openOrders.filter(o => o.orderId !== orderId) : null);
-          return;
-        }
-        throw new Error(data.error ?? `HTTP ${res.status}`);
+        // 목록 갱신 후 에러 표시
+        const refreshRes = await fetch(`/api/toss/order?symbol=${sym}`);
+        const refreshData = await refreshRes.json() as { orders?: OpenOrder[] };
+        if (refreshRes.ok) setOpenOrders(refreshData.orders ?? []);
+        const msg = res.status === 404
+          ? '이 주문은 웹에서 취소할 수 없습니다.\n토스 앱에서 직접 취소하세요.'
+          : `취소 실패: ${data.error ?? `HTTP ${res.status}`}`;
+        alert(msg);
+        return;
       }
       setOpenOrders(openOrders ? openOrders.filter(o => o.orderId !== orderId) : null);
     } catch (e) {
-      alert(`취소 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}\n\n이미 체결됐거나 취소 마감 시간이 지났을 수 있습니다.`);
+      alert(`취소 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
     } finally {
       setCancellingId(null);
     }
