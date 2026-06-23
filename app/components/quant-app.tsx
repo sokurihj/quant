@@ -261,6 +261,8 @@ function JournalTab({ sym }: { sym: Symbol }) {
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, conf(sym).currency);
   const [open, setOpen] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editStartRem, setEditStartRem] = useState('');
 
   // endDate("2026. 6. 19." 형식)에서 "YYYY년 M월" 키 추출
   const parseYM = (d: string) => {
@@ -311,6 +313,19 @@ function JournalTab({ sym }: { sym: Symbol }) {
     j.splice(origIdx, 1);
     setJournal(sym, j);
     setOpen(null);
+    setTick(t => t + 1);
+  };
+
+  const saveStartRem = (origIdx: number) => {
+    const val = parseFloat(editStartRem);
+    if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
+    const j = getJournal(sym);
+    const entry = j[origIdx];
+    const profit = entry.endRem - val;
+    const profitPct = val > 0 ? profit / val * 100 : 0;
+    j[origIdx] = { ...entry, startRem: val, profit, profitPct };
+    setJournal(sym, j);
+    setEditingIdx(null);
     setTick(t => t + 1);
   };
 
@@ -382,7 +397,22 @@ function JournalTab({ sym }: { sym: Symbol }) {
                       </button>
                       {isOpen && (
                         <div className="border-t border-border px-3 py-2.5 bg-card flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
-                          <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">시작 자본</span><span className="font-mono">{f(j.startRem)}</span></div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground text-xs">시작 자본</span>
+                            {editingIdx === origIdx ? (
+                              <div className="flex items-center gap-1.5">
+                                <input type="number" value={editStartRem} onChange={e => setEditStartRem(e.target.value)} autoFocus
+                                  className="w-28 bg-input border border-border rounded px-2 py-0.5 text-xs font-mono outline-none focus:border-ring" />
+                                <button onClick={() => saveStartRem(origIdx)} className="text-xs text-primary hover:underline">저장</button>
+                                <button onClick={() => setEditingIdx(null)} className="text-xs text-muted-foreground hover:underline">취소</button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono">{f(j.startRem)}</span>
+                                <button onClick={() => { setEditingIdx(origIdx); setEditStartRem(String(j.startRem)); }} className="text-xs text-muted-foreground hover:text-primary transition-colors">수정</button>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">종료 자본</span><span className="font-mono">{f(j.endRem)}</span></div>
                           <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">사이클 수익</span><span className={`font-mono font-semibold ${profitPos ? 'text-chart-2' : 'text-destructive'}`}>{profitStr}</span></div>
                           {j.trades && j.trades.length > 0 && (
@@ -1275,7 +1305,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
                   const cur = getState(sym);
                   if (!cur) return;
-                  setState(sym, { ...cur, rem: val });
+                  const delta = val - cur.rem;
+                  setState(sym, { ...cur, rem: val, cycleStartRem: (cur.cycleStartRem ?? cur.rem) + delta });
                   setSetRem('');
                   refresh();
                   alert(`잔여자본이 ${f(val)}으로 수정되었습니다.`);
