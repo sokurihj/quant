@@ -25,7 +25,7 @@ function StatusBar({ s, sym }: { s: SymbolState; sym: Symbol }) {
         </div>
         <div className="p-3 border-r border-border">
           <p className="text-xs text-muted-foreground mb-1">총 자본</p>
-          <p className="font-mono text-sm font-semibold text-muted-foreground">{f(s.total ?? s.rem)}</p>
+          <p className="font-mono text-sm font-semibold text-muted-foreground">{f(s.cycleStartRem ?? s.total ?? s.rem)}</p>
         </div>
         <div className="p-3">
           <p className="text-xs text-muted-foreground mb-1">잔여자본</p>
@@ -265,6 +265,8 @@ function JournalTab({ sym }: { sym: Symbol }) {
   const [tick, setTick] = useState(0);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editStartRem, setEditStartRem] = useState('');
+  const [curPrice, setCurPrice] = useState('');
+  const [priceLoading, setPriceLoading] = useState(false);
 
   // endDate("2026. 6. 19." 형식)에서 "YYYY년 M월" 키 추출
   const parseYM = (d: string) => {
@@ -334,7 +336,20 @@ function JournalTab({ sym }: { sym: Symbol }) {
   const totalProfit = journal.reduce((s, j) => s + j.profit, 0);
   const totalProfitPos = totalProfit >= 0;
 
-  if (journal.length === 0) return (
+  const s = getState(sym);
+  const hasOpenPosition = !!s && s.shares > 0;
+  const priceNum = parseFloat(curPrice);
+  let est: { profit: number; profitPct: number; startRem: number } | null = null;
+  if (s && priceNum > 0) {
+    const quarterProceeds = getHist(sym).filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
+    const estRem = s.rem + s.shares * priceNum;
+    const estEndRem = estRem + quarterProceeds;
+    const startRem = s.cycleStartRem ?? estRem;
+    const estProfit = estEndRem - startRem;
+    est = { profit: estProfit, profitPct: startRem > 0 ? estProfit / startRem * 100 : 0, startRem };
+  }
+
+  if (journal.length === 0 && !hasOpenPosition) return (
     <p className="text-center text-sm text-muted-foreground py-6">완료된 사이클이 없습니다.</p>
   );
 
@@ -345,6 +360,56 @@ function JournalTab({ sym }: { sym: Symbol }) {
         <button onClick={() => { setJournal(sym, []); setOpen(null); setTick(t => t + 1); }} className="text-xs text-muted-foreground hover:text-destructive transition-colors">전체 삭제</button>
       </div>
 
+      {/* 진행 중인 사이클 예상 수익 */}
+      {hasOpenPosition && (
+        <div className="bg-muted/30 border border-border rounded-lg px-3 py-2.5 flex flex-col gap-2">
+          <span className="text-xs text-muted-foreground">진행 중인 사이클 (예상)</span>
+          <div className="flex gap-2 items-center">
+            <input type="number" value={curPrice} onChange={e => setCurPrice(e.target.value)}
+              placeholder="현재가 입력" className="flex-1 bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+            {sym !== 'BTC' && (
+              <button onClick={async () => {
+                  setPriceLoading(true);
+                  try {
+                    const res = await fetch(`/api/toss/price?symbol=${sym}`);
+                    const data = await res.json();
+                    if (data.price) {
+                      const rawPrice = conf(sym).currency === 'KRW' ? String(Math.round(parseFloat(data.price))) : data.price;
+                      setCurPrice(rawPrice);
+                    }
+                  } catch {
+                    // 조용히 실패
+                  } finally {
+                    setPriceLoading(false);
+                  }
+                }} disabled={priceLoading} className="text-xs text-primary hover:underline disabled:opacity-40 shrink-0">
+                {priceLoading ? '조회 중...' : '조회'}
+              </button>
+            )}
+          </div>
+          {est ? (
+            <>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground/60">사이클 시작 자본</span>
+                <span className="text-xs text-muted-foreground/60 font-mono">{f(est.startRem)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">예상 수익</span>
+                <span className={`font-mono text-sm font-semibold ${est.profit >= 0 ? 'text-chart-2' : 'text-destructive'}`}>
+                  {est.profit >= 0 ? '+' : ''}{f(est.profit)} ({est.profitPct >= 0 ? '+' : ''}{est.profitPct.toFixed(2)}%)
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground/60">현재가를 입력하세요</p>
+          )}
+        </div>
+      )}
+
+      {journal.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground py-6">완료된 사이클이 없습니다.</p>
+      ) : (
+        <>
       {/* 총 누적 수익 */}
       <div className="bg-muted/30 border border-border rounded-lg px-3 py-2.5 flex justify-between items-center">
         <span className="text-xs text-muted-foreground">총 누적 수익</span>
@@ -447,6 +512,8 @@ function JournalTab({ sym }: { sym: Symbol }) {
           </div>
         );
       })}
+        </>
+      )}
     </div>
   );
 }
@@ -463,11 +530,6 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [tab, setTab] = useState<TabName>('buy');
   const [tdelta, setTdelta] = useState(1.0);
   const [tick, setTick] = useState(0); // 리렌더 트리거
-  const [showReset, setShowReset] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [resetCapital, setResetCapital] = useState('');
-  const [resetDiv, setResetDiv] = useState<10 | 20 | 40>(40);
-  const [pendingProfit, setPendingProfit] = useState(0);
 
   // 입력 필드
   const [buyQty, setBuyQty] = useState('');
@@ -482,7 +544,6 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [revExitPrice, setRevExitPrice] = useState('');
   const [setRem, setSetRem] = useState('');
   const [setCapital, setSetCapital] = useState('');
-  const [setTotal, setSetTotal] = useState('');
   const [setAvg, setSetAvg] = useState('');
   const [setShares, setSetShares] = useState('');
   const [limitPrice, setLimitPrice] = useState('');
@@ -616,29 +677,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       setHist(sym, []);
       const newS = { ...cur, rem: nextRem, total: nextRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: nextRem, cycleStartDate: null, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
       setState(sym, newS);
-      setPendingProfit(journalProfit);
-      setResetCapital(journalEndRem.toFixed(2));
-      setResetDiv(cur.div);
       setSellPrice('');
-      setShowReset(true);
       refresh();
+      alert(`사이클 완료!\n손익: ${journalProfit >= 0 ? '+' : ''}${f(journalProfit)} (${journalProfitPct >= 0 ? '+' : ''}${journalProfitPct.toFixed(2)}%)`);
       return;
     }
     setSellPrice('');
     refresh();
   }, [sym, sellPrice, refresh]);
-
-  const handleResetConfirm = useCallback(() => {
-    const capital = parseFloat(resetCapital) || 10000;
-    const cur = getState(sym) ?? {};
-    const newState = defState(capital, resetDiv);
-    newState.cycle = (cur as SymbolState).cycle ?? 1;
-    setState(sym, newState);
-    setHist(sym, []);
-    setShowReset(false);
-    setTab('buy');
-    refresh();
-  }, [sym, resetCapital, resetDiv, refresh]);
 
   const handleReverseSell = useCallback(() => {
     const cur = getState(sym);
@@ -812,6 +858,16 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
     const id = `${sym}-BUY-LIMIT-${Date.now()}`;
     setOrderDraft({ label: '지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: id, maxQty });
+  };
+
+  const openCustomLocOrder = () => {
+    if (!s || (!hasPos && !isFirst)) return;
+    const orderPrice = parseFloat(limitPrice);
+    if (!orderPrice || orderPrice <= 0) return alert('가격을 입력하세요.');
+    const maxQty = qtyFloor(nb / orderPrice, sym);
+    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
+    const id = `${sym}-BUY-LOC-${Date.now()}`;
+    setOrderDraft({ label: '커스텀 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: id, maxQty, allocAmt: nb });
   };
 
   const openQuarterSellOrder = () => {
@@ -1072,7 +1128,12 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                           {limitPriceLoading ? '조회 중...' : '현재가'}
                         </button>
                     </div>
-                    <button onClick={openCustomLimitOrder} className="border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">지정가 주문</button>
+                    <div className="flex gap-2">
+                      <button onClick={openCustomLimitOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">지정가 주문</button>
+                      {cur === 'USD' && (
+                        <button onClick={openCustomLocOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">LOC 주문</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1278,7 +1339,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">초기화 후 재시작</button>
               <div className="border-t border-border pt-4 flex flex-col gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">잔여자본 직접 수정 ({unit})</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">잔여자본 직접 수정 — 실제 현금이 늘거나 줄었을 때 ({unit})</label>
                   {lastQuarterProceeds > 0 && (
                     <div className="mb-2 flex flex-col gap-1.5">
                       <p className="text-xs text-muted-foreground">마지막 쿼터매도 수익: <span className="font-mono text-foreground">{f(lastQuarterProceeds)}</span> — 재투입 금액 선택</p>
@@ -1299,7 +1360,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   <input type="number" value={setRem} onChange={e => setSetRem(e.target.value)}
                     placeholder="실제 남은 현금 입력" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
-                <p className="text-xs text-muted-foreground">T값·평단가·보유주식은 유지되고 잔여자본만 변경됩니다.</p>
+                <p className="text-xs text-muted-foreground">T값·평단가·보유주식은 유지되고, 잔여자본과 화면의 총 자본이 늘어난(줄어든) 만큼 같이 변경됩니다.</p>
                 <button onClick={() => {
                   const val = parseFloat(setRem);
                   if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
@@ -1312,68 +1373,39 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   alert(`잔여자본이 ${f(val)}으로 수정되었습니다.`);
                 }} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">잔여자본 수정</button>
               </div>
-              <div className="border-t border-border pt-4 flex flex-col gap-3">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">총 자본 직접 수정 ({unit})</label>
-                  {(() => {
+              {sym === 'BTC' && (
+                <div className="border-t border-border pt-4 flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1.5">평단가 직접 수정 ({unit})</label>
+                      <input type="number" value={setAvg} onChange={e => setSetAvg(e.target.value)}
+                        placeholder={s?.avg ? s.avg.toFixed(2) : '0'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1.5">보유수량 직접 수정 (BTC)</label>
+                      <input type="number" value={setShares} onChange={e => setSetShares(e.target.value)}
+                        placeholder={s?.shares ? s.shares.toFixed(6) : '0'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">거래소 실제 수치와 다를 때 수동으로 맞춥니다. T값·잔여자본은 유지됩니다.</p>
+                  <button onClick={() => {
+                    const avg = parseFloat(setAvg);
+                    const shares = parseFloat(setShares);
+                    if ((!avg && avg !== 0) && (!shares && shares !== 0)) return alert('평단가 또는 보유수량을 입력하세요.');
                     const cur = getState(sym);
-                    if (!cur || !cur.shares || !cur.avg) return null;
-                    const suggested = cur.rem + cur.shares * cur.avg;
-                    return (
-                      <p className="text-xs text-muted-foreground mb-2">
-                        추정값: 잔여자본 + 보유{unit} × 평단가 = <button
-                          className="font-mono text-foreground underline underline-offset-2 hover:opacity-70"
-                          onClick={() => setSetTotal(suggested.toFixed(2))}
-                        >{f(suggested)}</button>
-                      </p>
-                    );
-                  })()}
-                  <input type="number" value={setTotal} onChange={e => setSetTotal(e.target.value)}
-                    placeholder="총 자본 입력" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                    if (!cur) return;
+                    const next = { ...cur };
+                    if (avg > 0) next.avg = avg;
+                    if (shares >= 0) next.shares = shares;
+                    saveSnapshot(sym);
+                    setState(sym, next);
+                    setSetAvg('');
+                    setSetShares('');
+                    refresh();
+                    alert('수정됐습니다. 되돌리기로 복원 가능합니다.');
+                  }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">평단가·보유수량 수정</button>
                 </div>
-                <p className="text-xs text-muted-foreground">T값·평단가·잔여자본은 유지되고 총 자본 표시만 변경됩니다.</p>
-                <button onClick={() => {
-                  const val = parseFloat(setTotal);
-                  if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
-                  const cur = getState(sym);
-                  if (!cur) return;
-                  setState(sym, { ...cur, total: val });
-                  setSetTotal('');
-                  refresh();
-                  alert(`총 자본이 ${f(val)}으로 수정되었습니다.`);
-                }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">총 자본 수정</button>
-              </div>
-              <div className="border-t border-border pt-4 flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">평단가 직접 수정 ({unit})</label>
-                    <input type="number" value={setAvg} onChange={e => setSetAvg(e.target.value)}
-                      placeholder={s?.avg ? s.avg.toFixed(2) : '0'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">보유수량 직접 수정 (BTC)</label>
-                    <input type="number" value={setShares} onChange={e => setSetShares(e.target.value)}
-                      placeholder={s?.shares ? s.shares.toFixed(6) : '0'} className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">거래소 실제 수치와 다를 때 수동으로 맞춥니다. T값·잔여자본은 유지됩니다.</p>
-                <button onClick={() => {
-                  const avg = parseFloat(setAvg);
-                  const shares = parseFloat(setShares);
-                  if ((!avg && avg !== 0) && (!shares && shares !== 0)) return alert('평단가 또는 보유수량을 입력하세요.');
-                  const cur = getState(sym);
-                  if (!cur) return;
-                  const next = { ...cur };
-                  if (avg > 0) next.avg = avg;
-                  if (shares >= 0) next.shares = shares;
-                  saveSnapshot(sym);
-                  setState(sym, next);
-                  setSetAvg('');
-                  setSetShares('');
-                  refresh();
-                  alert('수정됐습니다. 되돌리기로 복원 가능합니다.');
-                }} className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">평단가·보유수량 수정</button>
-              </div>
+              )}
               {sym !== 'BTC' && (
                 <div className="border-t border-border pt-4 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
@@ -1517,39 +1549,6 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
         </div>
       )}
 
-      {/* 사이클 완료 모달 */}
-      {showReset && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm flex flex-col gap-4">
-            <div>
-              <h3 className="text-base font-semibold">사이클 완료</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                손익: <span className={`font-mono font-semibold ${pendingProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                  {pendingProfit >= 0 ? '+' : ''}{f(pendingProfit)}
-                </span>
-              </p>
-            </div>
-            <p className="text-sm text-muted-foreground">다음 사이클의 자본과 분할 수를 확인하고 시작하세요.</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">총 자본</label>
-                <input type="number" value={resetCapital} onChange={e => setResetCapital(e.target.value)}
-                  className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">분할 수</label>
-                <select value={resetDiv} onChange={e => setResetDiv(parseInt(e.target.value) as 10 | 20 | 40)}
-                  className="w-full bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:border-ring">
-                  {sym === 'BTC' && <option value="10">10분할 — BTC형</option>}
-                  <option value="40">40분할 — 안정형</option>
-                  <option value="20">20분할 — 공격형</option>
-                </select>
-              </div>
-            </div>
-            <button onClick={handleResetConfirm} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">다음 사이클 시작</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
