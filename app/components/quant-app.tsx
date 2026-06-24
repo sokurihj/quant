@@ -165,20 +165,22 @@ function LocGuide({ s, sym }: { s: SymbolState; sym: Symbol }) {
               <p className="text-xs text-muted-foreground">별지점 {fd(bpr)} − {tickStr}{bp < 0 ? ' · 평단 아래' : ''}</p>
             </div>
           </div>
-          <span className="font-mono text-sm font-semibold text-primary">{f(isSecondHalf || sym === 'BTC' ? nb : half)}</span>
+          <span className="font-mono text-sm font-semibold text-primary">{f(isSecondHalf ? nb : half)}</span>
         </div>
+        {!isSecondHalf && (
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
+              <div>
+                <p className="font-mono text-sm font-semibold">{fd(avgPt)} 이하 {sym === 'BTC' ? '지정가' : 'LOC'}</p>
+                <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
+              </div>
+            </div>
+            <span className="font-mono text-sm font-semibold text-primary">{f(half)}</span>
+          </div>
+        )}
         {!isSecondHalf && sym !== 'BTC' && (
           <>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded">평단가</span>
-                <div>
-                  <p className="font-mono text-sm font-semibold">{fd(avgPt)} 이하 LOC</p>
-                  <p className="text-xs text-muted-foreground">평단 {f(s.avg)} − {tickStr}</p>
-                </div>
-              </div>
-              <span className="font-mono text-sm font-semibold text-primary">{f(half)}</span>
-            </div>
             <div className="flex items-center justify-between px-4 py-3 opacity-55">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-semibold border border-border text-muted-foreground px-2 py-0.5 rounded">단계 3</span>
@@ -992,22 +994,20 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               {recQty > 0 && parseFloat(buyQty) > recQty && (
                 <p className="text-xs text-amber-500">권장 수량({recQty}{conf(sym).unit})을 초과했습니다. T값이 예상보다 빠르게 증가합니다.</p>
               )}
-              {sym !== 'BTC' && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
-                  <div className="flex gap-2">
-                    {([1.0, 0.5] as const).map(v => (
-                      <button key={v} onClick={() => setTdelta(v)}
-                        className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${tdelta === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
-                        {v === 1.0 ? '전체 체결 (T +1)' : '절반 체결 (T +0.5)'}
-                      </button>
-                    ))}
-                  </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
+                <div className="flex gap-2">
+                  {([1.0, 0.5] as const).map(v => (
+                    <button key={v} onClick={() => setTdelta(v)}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${tdelta === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+                      {v === 1.0 ? '전체 체결 (T +1)' : '절반 체결 (T +0.5)'}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {sym === 'BTC'
-                  ? '별지점 이하인 날 매수 후 체결가를 입력하세요. (T +1 고정)'
+                  ? '별지점/평단가 이하로 떨어진 날 매수 후 체결가를 입력하세요. 둘 다 닿았으면 전체 체결, 별지점만 닿았으면 절반 체결을 선택하세요.'
                   : '실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.'}
               </p>
               {((hasPos || isFirst) || (openOrders !== null && openOrders.length > 0)) && sym !== 'BTC' && (
