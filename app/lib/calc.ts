@@ -3,7 +3,7 @@ import type { Symbol, SymbolState } from './types';
 const CONF = {
   TQQQ:    { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'USD', tick: 0.01, decimals: 0, unit: '주' },
   SOXL:    { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  }, currency: 'USD', tick: 0.01, decimals: 0, unit: '주' },
-  HYNIX2X: { target_pct: 15, byeol_base: 15, slope: { 20: 1.5,  40: 0.75 }, currency: 'KRW', tick: 5,   decimals: 0, unit: '주' },
+  HYNIX2X: { target_pct: 20, byeol_base: 20, slope: { 20: 2.0,  40: 1.0  }, currency: 'KRW', tick: 5,   decimals: 0, unit: '주' },
   BTC:     { target_pct: 15, byeol_base: 15, slope: { 10: 3.0, 20: 2.0,  40: 1.0  }, currency: 'USD', tick: 0.1,  decimals: 6, unit: 'BTC' },
 } as const;
 
