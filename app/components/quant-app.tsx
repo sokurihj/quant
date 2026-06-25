@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName } from '@/lib/types';
-import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf } from '@/lib/calc';
+import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees } from '@/lib/calc';
 import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP } from '@/lib/storage';
 import { StatusBar } from './quant-app/status-bar';
 import { TargetCards } from './quant-app/target-cards';
@@ -161,17 +161,19 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       const journalEndRem = nextRem + quarterProceeds;
       const startRem = cur.cycleStartRem ?? nextRem;
       const journalProfit = journalEndRem - startRem;
-      const journalProfitPct = startRem > 0 ? journalProfit / startRem * 100 : 0;
       const journal = getJournal(sym);
       const cycleHist = [...hist, { type: 'all' as const, shares: cur.shares, price, amount: cur.shares * price, T: cur.T, date: new Date().toLocaleDateString('ko') }];
-      journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem, endRem: journalEndRem, profit: journalProfit, profitPct: journalProfitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko'), trades: cycleHist });
+      const fees = totalFees(cycleHist, sym);
+      const netProfit = journalProfit - fees;
+      const netProfitPct = startRem > 0 ? netProfit / startRem * 100 : 0;
+      journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem, endRem: journalEndRem, profit: netProfit, profitPct: netProfitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko'), trades: cycleHist });
       setJournal(sym, journal);
       setHist(sym, []);
       const newS = { ...cur, rem: nextRem, total: nextRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: nextRem, cycleStartDate: null, cycleSeed: nextRem, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
       setState(sym, newS);
       setSellPrice('');
       refresh();
-      alert(`사이클 완료!\n손익: ${journalProfit >= 0 ? '+' : ''}${f(journalProfit)} (${journalProfitPct >= 0 ? '+' : ''}${journalProfitPct.toFixed(2)}%)`);
+      alert(`사이클 완료!\n손익: ${netProfit >= 0 ? '+' : ''}${f(netProfit)} (${netProfitPct >= 0 ? '+' : ''}${netProfitPct.toFixed(2)}%)`);
       return;
     }
     setSellPrice('');

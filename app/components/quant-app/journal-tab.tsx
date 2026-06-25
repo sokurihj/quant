@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Symbol, JournalEntry } from '@/lib/types';
-import { fmt, conf } from '@/lib/calc';
+import { fmt, conf, totalFees } from '@/lib/calc';
 import { getState, getHist, getJournal, setJournal } from '@/lib/storage';
 
 export function JournalTab({ sym }: { sym: Symbol }) {
@@ -69,7 +69,8 @@ export function JournalTab({ sym }: { sym: Symbol }) {
     if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
     const j = getJournal(sym);
     const entry = j[origIdx];
-    const profit = entry.endRem - val;
+    const fees = entry.trades ? totalFees(entry.trades, sym) : 0;
+    const profit = entry.endRem - val - fees;
     const profitPct = val > 0 ? profit / val * 100 : 0;
     j[origIdx] = { ...entry, startRem: val, profit, profitPct };
     setJournal(sym, j);
@@ -85,11 +86,13 @@ export function JournalTab({ sym }: { sym: Symbol }) {
   const priceNum = parseFloat(curPrice);
   let est: { profit: number; profitPct: number; startRem: number } | null = null;
   if (s && priceNum > 0) {
-    const quarterProceeds = getHist(sym).filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
+    const hist = getHist(sym);
+    const quarterProceeds = hist.filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
     const estRem = s.rem + s.shares * priceNum;
     const estEndRem = estRem + quarterProceeds;
     const startRem = s.cycleStartRem ?? estRem;
-    const estProfit = estEndRem - startRem;
+    const estTrades = [...hist, { type: 'all' as const, shares: s.shares, price: priceNum, amount: s.shares * priceNum, T: s.T, date: '' }];
+    const estProfit = estEndRem - startRem - totalFees(estTrades, sym);
     est = { profit: estProfit, profitPct: startRem > 0 ? estProfit / startRem * 100 : 0, startRem };
   }
 
