@@ -20,6 +20,9 @@ export function StatusBar({ s, sym }: { s: SymbolState; sym: Symbol }) {
         <div className="p-3 border-r border-border">
           <p className="text-xs text-muted-foreground mb-1">총 자본</p>
           <p className="font-mono text-sm font-semibold text-muted-foreground">{f(s.cycleStartRem ?? s.total ?? s.rem)}</p>
+          {s.cycleSeed != null && s.cycleSeed !== (s.cycleStartRem ?? s.total ?? s.rem) && (
+            <p className="text-[10px] text-muted-foreground/60 mt-0.5">최초 시드 {f(s.cycleSeed)}</p>
+          )}
         </div>
         <div className="p-3">
           <p className="text-xs text-muted-foreground mb-1">잔여자본</p>

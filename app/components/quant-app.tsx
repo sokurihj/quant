@@ -167,7 +167,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       journal.push({ cycle: cur.cycle ?? 1, div: cur.div, startRem, endRem: journalEndRem, profit: journalProfit, profitPct: journalProfitPct, startDate: cur.cycleStartDate ?? '—', endDate: new Date().toLocaleDateString('ko'), trades: cycleHist });
       setJournal(sym, journal);
       setHist(sym, []);
-      const newS = { ...cur, rem: nextRem, total: nextRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: nextRem, cycleStartDate: null, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
+      const newS = { ...cur, rem: nextRem, total: nextRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: nextRem, cycleStartDate: null, cycleSeed: nextRem, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
       setState(sym, newS);
       setSellPrice('');
       refresh();

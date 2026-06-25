@@ -14,6 +14,7 @@ export interface SymbolState {
   reverseDay: number;
   cycleStartRem: number;
   cycleStartDate: string | null;
+  cycleSeed: number;
 }
 
 export interface HistoryEntry {

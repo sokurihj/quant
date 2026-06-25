@@ -49,7 +49,7 @@ export const revExitThreshold = (avg: number, sym: Symbol) =>
 export const defState = (capital = 10000, division: 10 | 20 | 40 = 40): SymbolState => ({
   T: 0, avg: 0, shares: 0, rem: capital, total: capital,
   div: division, cycle: 1, mode: 'normal', reverseDay: 0,
-  cycleStartRem: capital, cycleStartDate: null,
+  cycleStartRem: capital, cycleStartDate: null, cycleSeed: capital,
 });
 
 export const fmt = (n: number | null | undefined, d = 2, currency = 'USD'): string => {
