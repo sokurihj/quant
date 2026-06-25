@@ -374,10 +374,16 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const openLimitSellOrder = () => {
     if (!s || !hasPos) return;
     const price = targetPrice(ftPrice(s.avg, sym), sym);
-    const quarterQty = qtyFloor(s.shares * 0.25, sym);
-    const maxQty = parseFloat((s.shares - quarterQty).toFixed(6));
+    let maxQty: number;
+    if (sym === 'HYNIX2X') {
+      maxQty = s.shares;
+    } else {
+      const quarterQty = qtyFloor(s.shares * 0.25, sym);
+      maxQty = parseFloat((s.shares - quarterQty).toFixed(6));
+    }
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
-    setOrderDraft({ label: '지정가매도 주문 (¾)', side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-LIMIT-${Date.now()}`, maxQty });
+    const label = sym === 'HYNIX2X' ? '지정가매도 주문 (전량)' : '지정가매도 주문 (¾)';
+    setOrderDraft({ label, side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-LIMIT-${Date.now()}`, maxQty });
   };
 
   const checkRevExit = useCallback(() => {
@@ -696,7 +702,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   <span className="font-mono">{hasPos ? f(targetPrice(bPrice(s.avg, sym, s.div, s.T), sym)) : '—'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-xs text-muted-foreground">지정가매도 목표가 (잔여 ¾)</span>
+                  <span className="text-xs text-muted-foreground">지정가매도 목표가 {sym === 'HYNIX2X' ? '(전량)' : '(잔여 ¾)'}</span>
                   <span className="font-mono">{hasPos ? f(targetPrice(ftPrice(s.avg, sym), sym)) : '—'}</span>
                 </div>
               </div>
@@ -746,7 +752,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               )}
               <div className="flex gap-2">
                 <button onClick={() => handleSell('quarter')} className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity border border-border">쿼터매도 (¼)</button>
-                <button onClick={() => handleSell('all')} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">지정가매도 (¾)</button>
+                <button onClick={() => handleSell('all')} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">지정가매도 {sym === 'HYNIX2X' ? '(전량)' : '(¾)'}</button>
               </div>
             </div>
           )}
