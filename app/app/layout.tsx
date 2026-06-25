@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Quant — 레버리지 ETF 계산기",
-  description: "TQQQ / SOXL 분할매수 전략 보조 계산기",
+  description: "TQQQ / SOXL / RAM 분할매수 전략 보조 계산기",
 };
 
 export default function RootLayout({

@@ -1,7 +1,7 @@
 import { createSupabaseServer, createSupabaseAuth } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
-const ALLOWED_KEYS = /^(st|hist|undo|journal)_(TQQQ|SOXL|HYNIX2X|BTC)$/;
+const ALLOWED_KEYS = /^(st|hist|undo|journal)_(TQQQ|SOXL|HYNIX2X|BTC|RAM)$/;
 
 async function getUser() {
   const supabase = await createSupabaseAuth();

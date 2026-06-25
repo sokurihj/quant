@@ -25,7 +25,8 @@
 - `journalEndRem = nextRem + quarterProceeds` (저널용 종료 자본 — 쿼터매도 포함)
 - `startRem = cur.cycleStartRem` (첫 매수 시 기록된 잔금)
 - `journalProfit = journalEndRem - startRem`
-- 재설정 모달 기본값: `resetCapital = journalEndRem.toFixed(2)`
+- `netProfit = journalProfit - totalFees(cycleHist, sym)` — 매매일지에 저장되는 최종 `profit`/`profitPct` (수수료 차감, 표시 전용 — `rem`/`avg` 등 실제 상태 계산에는 미반영)
+- 재설정 모달 기본값: `resetCapital = journalEndRem.toFixed(2)` (수수료 미반영 — 다음 사이클 잔금 계산은 그대로 유지)
 - `handleSell('all')` → 현재 hist + 최종 매도 entry를 `JournalEntry.trades`에 포함해 매매일지 저장 → state 리셋 → 재설정 모달 표시
 - 모달(`#reset-overlay`)에서 총 자본·분할수 입력 → `handleResetConfirm()` 호출
 - `handleResetConfirm()`: `defState(capital, division)` + cycle 번호 이어받기 + hist 초기화
@@ -80,7 +81,7 @@
   - `isFirst`: `shares === 0 && avg === 0 && buyPriceNum > 0` — 포지션 없지만 현재가 입력된 첫 진입 상태
   - `isFirst`일 때 섹션 제목에 "— 첫 진입 (현재가 기준)" 표시
 - **매수 탭**
-  - USD 심볼(TQQQ/SOXL): LOC 섹션(별지점/현재가 LOC, 평단가 LOC*) + 지정가 섹션(별지점/현재가 지정가, 평단가 지정가*)
+  - USD 심볼(TQQQ/SOXL/RAM): LOC 섹션(별지점/현재가 LOC, 평단가 LOC*) + 지정가 섹션(별지점/현재가 지정가, 평단가 지정가*)
   - KRW 심볼(HYNIX2X): 지정가 섹션만 (LOC 미지원)
   - *전반전(`T < div/2`)이고 `hasPos`인 경우에만 평단가 버튼 표시 (`isFirst`이면 평단가 버튼 없음)
   - `isFirst`일 때: 버튼 라벨 "현재가 LOC"/"현재가 지정가", 가격=`buyPriceNum`, 배정금액=`nb` 전액

@@ -14,4 +14,9 @@ SYMBOLS = {
         'byeol_base': 20,
         'byeol_slope': {20: 2.0, 40: 1.0},
     },
+    'RAM': {
+        'target_pct': 20,
+        'byeol_base': 20,
+        'byeol_slope': {20: 2.0, 40: 1.0},
+    },
 }
