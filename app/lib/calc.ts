@@ -69,6 +69,14 @@ export const tradeFee = (h: Pick<HistoryEntry, 'type' | 'amount'>, sym: Symbol) 
 export const totalFees = (trades: Pick<HistoryEntry, 'type' | 'amount'>[], sym: Symbol) =>
   trades.reduce((sum, h) => sum + tradeFee(h, sym), 0);
 
+export const feeBreakdown = (trades: Pick<HistoryEntry, 'type' | 'amount'>[], sym: Symbol) => {
+  if (!isFeeSymbol(sym)) return { commission: 0, secFee: 0 };
+  const isSell = (h: Pick<HistoryEntry, 'type'>) => h.type === 'quarter' || h.type === 'all' || h.type === 'rsell';
+  const commission = trades.reduce((s, h) => s + h.amount * 0.001, 0);
+  const secFee = trades.filter(isSell).reduce((s, h) => s + h.amount * 0.0000206, 0);
+  return { commission, secFee };
+};
+
 export const fmt = (n: number | null | undefined, d = 2, currency = 'USD'): string => {
   if (n == null) return '—';
   if (currency === 'KRW') return '₩' + Math.round(n).toLocaleString('ko-KR');

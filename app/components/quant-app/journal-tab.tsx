@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Symbol, JournalEntry } from '@/lib/types';
-import { fmt, conf, totalFees } from '@/lib/calc';
+import { fmt, conf, totalFees, feeBreakdown } from '@/lib/calc';
 import { getState, getHist, getJournal, setJournal } from '@/lib/storage';
 
 export function JournalTab({ sym }: { sym: Symbol }) {
@@ -84,7 +84,7 @@ export function JournalTab({ sym }: { sym: Symbol }) {
   const s = getState(sym);
   const hasOpenPosition = !!s && s.shares > 0;
   const priceNum = parseFloat(curPrice);
-  let est: { profit: number; profitPct: number; startRem: number } | null = null;
+  let est: { profit: number; profitPct: number; startRem: number; commission: number; secFee: number } | null = null;
   if (s && priceNum > 0) {
     const hist = getHist(sym);
     const quarterProceeds = hist.filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
@@ -93,7 +93,8 @@ export function JournalTab({ sym }: { sym: Symbol }) {
     const startRem = s.cycleStartRem ?? estRem;
     const estTrades = [...hist, { type: 'all' as const, shares: s.shares, price: priceNum, amount: s.shares * priceNum, T: s.T, date: '' }];
     const estProfit = estEndRem - startRem - totalFees(estTrades, sym);
-    est = { profit: estProfit, profitPct: startRem > 0 ? estProfit / startRem * 100 : 0, startRem };
+    const estFees = feeBreakdown(estTrades, sym);
+    est = { profit: estProfit, profitPct: startRem > 0 ? estProfit / startRem * 100 : 0, startRem, ...estFees };
   }
 
   if (journal.length === 0 && !hasOpenPosition) return (
@@ -146,6 +147,18 @@ export function JournalTab({ sym }: { sym: Symbol }) {
                   {est.profit >= 0 ? '+' : ''}{f(est.profit)} ({est.profitPct >= 0 ? '+' : ''}{est.profitPct.toFixed(2)}%)
                 </span>
               </div>
+              {(est.commission > 0 || est.secFee > 0) && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground/60">거래수수료 (0.1%)</span>
+                    <span className="text-xs text-muted-foreground/60 font-mono">-{f(est.commission)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground/60">SEC Fee (0.00206%)</span>
+                    <span className="text-xs text-muted-foreground/60 font-mono">-{f(est.secFee)}</span>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <p className="text-xs text-muted-foreground/60">현재가를 입력하세요</p>
@@ -229,6 +242,12 @@ export function JournalTab({ sym }: { sym: Symbol }) {
                           </div>
                           <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">종료 자본</span><span className="font-mono">{f(j.endRem)}</span></div>
                           <div className="flex justify-between text-sm"><span className="text-muted-foreground text-xs">사이클 수익</span><span className={`font-mono font-semibold ${profitPos ? 'text-chart-2' : 'text-destructive'}`}>{profitStr}</span></div>
+                          {j.trades && (() => { const fb = feeBreakdown(j.trades!, sym); return (fb.commission > 0 || fb.secFee > 0) && (
+                            <>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground/60 text-xs">거래수수료 (0.1%)</span><span className="font-mono text-xs text-muted-foreground/60">-{f(fb.commission)}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground/60 text-xs">SEC Fee (0.00206%)</span><span className="font-mono text-xs text-muted-foreground/60">-{f(fb.secFee)}</span></div>
+                            </>
+                          ); })()}
                           {j.trades && j.trades.length > 0 && (
                             <div className="mt-1.5 flex flex-col gap-0.5">
                               <span className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">체결 내역</span>
