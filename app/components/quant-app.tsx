@@ -877,7 +877,9 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               </div>
               <p className="text-xs text-muted-foreground">⚠️ 초기화하면 현재 진행 중인 사이클과 거래 내역이 모두 삭제됩니다.</p>
               <button onClick={() => {
-                const cap = parseFloat(setCapital) || 10000;
+                // 0 입력 허용 — 운용하지 않는 심볼을 비우는 용도 (빈 입력만 기본값 10000)
+                const parsed = parseFloat(setCapital);
+                const cap = isNaN(parsed) || parsed < 0 ? 10000 : parsed;
                 if (!confirm(`${sym}을 초기화하시겠습니까?`)) return;
                 setState(sym, defState(cap, setDiv));
                 setHist(sym, []);
