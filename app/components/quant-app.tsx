@@ -99,8 +99,22 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const parkNNum = Math.max(1, Math.floor(parseFloat(parkN)) || 4);
   const parkBuffer = s ? Math.min(parkNNum, Math.max(s.div - s.T, 0)) * nb : 0;
   const parkAmt = s ? Math.max(0, s.rem - parkBuffer) : 0;
+  // SGOV 보유는 계좌에 하나뿐이므로, 다른 USD 심볼의 권장 파킹액까지 합산한 목표와 비교
+  const otherParkTargets = s
+    ? (['TQQQ', 'SOXL', 'RAM'] as Symbol[])
+        .filter(sy => sy !== sym)
+        .map(sy => {
+          const st = getState(sy);
+          if (!st || st.mode !== 'normal') return { sy, amt: 0 };
+          const a = nextAmt(st.rem, st.div, st.T);
+          const buf = Math.min(getParkN(sy), Math.max(st.div - st.T, 0)) * a;
+          return { sy, amt: Math.max(0, st.rem - buf) };
+        })
+        .filter(x => x.amt > 0)
+    : [];
+  const totalParkTarget = parkAmt + otherParkTargets.reduce((acc, x) => acc + x.amt, 0);
   const parkHeld = parkInfo ? parkInfo.qty * parkInfo.price : 0;
-  const parkGap = parkAmt - parkHeld;
+  const parkGap = totalParkTarget - parkHeld;
 
   const handleInit = useCallback((capital: number, division: 10 | 20 | 40) => {
     setState(sym, defState(capital, division));
@@ -979,9 +993,15 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                       <span className="font-mono">{f(parkBuffer)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-xs text-muted-foreground">권장 SGOV 파킹액</span>
+                      <span className="text-xs text-muted-foreground">권장 SGOV 파킹액 ({sym} 몫)</span>
                       <span className="font-mono text-primary">{f(parkAmt)}</span>
                     </div>
+                    {otherParkTargets.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-xs text-muted-foreground">계좌 전체 목표 (+{otherParkTargets.map(x => `${x.sy} ${f(x.amt)}`).join(' + ')})</span>
+                        <span className="font-mono text-primary">{f(totalParkTarget)}</span>
+                      </div>
+                    )}
                   </div>
                   <button onClick={handleParkCheck} disabled={parkLoading}
                     className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40">
@@ -990,7 +1010,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   {parkInfo && (
                     <div className="flex flex-col gap-1 text-xs">
                       <p className="text-muted-foreground">
-                        SGOV 현재가 <span className="font-mono text-foreground">{f(parkInfo.price)}</span> · 보유 <span className="font-mono text-foreground">{parkInfo.qty}주 ({f(parkHeld)})</span>
+                        SGOV 현재가 <span className="font-mono text-foreground">{f(parkInfo.price)}</span> · 보유 <span className="font-mono text-foreground">{parkInfo.qty}주 ({f(parkHeld)})</span> · 목표 <span className="font-mono text-foreground">{f(totalParkTarget)}</span>{otherParkTargets.length > 0 && ' (계좌 전체 합산)'}
                       </p>
                       {parkGap > parkInfo.price
                         ? <p className="text-primary">약 {Math.floor(parkGap / parkInfo.price)}주 매수 권장 — {f(parkGap)} 추가 파킹</p>

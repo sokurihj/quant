@@ -124,7 +124,9 @@
 - 회차 수 N은 입력란으로 조정 (기본 4, min 1) — `storage.ts`의 `getParkN/setParkN`으로 `park_${sym}` 키에 저장 (lqp 패턴, Supabase 미동기화)
 - "SGOV 조회" 버튼 → `/api/toss/price?symbol=SGOV` + `/api/toss/holdings?symbol=SGOV` 병렬 호출
   - SGOV는 `SYMBOL_MAP` 등록 없이 통과 (`toTossSymbol`이 미등록 티커를 그대로 전달)
-  - 보유 평가액과 권장 파킹액의 갭이 1주 가격 초과 시 "약 X주 매수/매도 권장" 표시, 이내면 "적정 수준"
+  - **비교 기준은 계좌 전체 합산**: SGOV 보유는 계좌에 하나뿐이므로, 현재 심볼 파킹액 + 다른 USD 심볼(TQQQ/SOXL/RAM)의 권장 파킹액(`getState`+`getParkN`으로 계산, 일반모드만)을 합친 `totalParkTarget`과 보유 평가액을 비교
+  - 다른 심볼 몫이 있으면 "계좌 전체 목표 (+RAM $…)" 행 추가 표시
+  - 갭이 1주 가격 초과 시 "약 X주 매수/매도 권장" 표시, 이내면 "적정 수준"
 - `parkN`/`parkInfo`/`parkLoading`/`parkStatus('idle'|'error')` state — state 변경 없는 표시 전용 기능 (undo 불필요)
 
 ## 계좌 동기화 (Next.js, 설정 탭)
