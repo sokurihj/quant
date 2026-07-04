@@ -528,10 +528,10 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       {/* 액션 패널 */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="flex border-b border-border">
-          {(['buy','sell','journal','setting'] as TabName[]).map((t, i) => (
+          {(['buy','sell','journal','setting','guide'] as TabName[]).map((t, i) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2.5 text-xs font-semibold transition-colors border-b-2 -mb-px ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-              {['① 매수','② 매도','③ 매매일지','④ 설정'][i]}
+              {['① 매수','② 매도','③ 매매일지','④ 설정','⑤ 가이드'][i]}
             </button>
           ))}
         </div>
@@ -855,6 +855,79 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
 
           {/* 매매일지 탭 */}
           {tab === 'journal' && <JournalTab sym={sym} />}
+
+          {/* 가이드 탭 — SGOV 파킹 운용 순서 */}
+          {tab === 'guide' && (
+            <div className="flex flex-col gap-5">
+              <div>
+                <p className="text-sm font-medium">SGOV 파킹 운용 가이드</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  대기 현금을 SGOV(초단기 미국채 ETF, 이자 붙는 달러)에 넣어 연 4% 안팎의 이자를 받는 운용 순서입니다.
+                  원칙: 앞으로 N회차분 매수금액만 현금으로 남기고, 나머지는 전부 SGOV에 파킹. (미국 주식 심볼 전용)
+                </p>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium mb-1.5">1. 최초 파킹 — 처음 시작할 때 한 번</p>
+                <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
+                  <li>④ 설정 탭 → &quot;SGOV 조회&quot; → <b className="text-foreground">계좌 전체 목표</b>만큼 SGOV 매수 (여러 종목 운용 시 몫이 자동 합산됨)</li>
+                  <li>SGOV는 타이밍이 무의미한 상품 — 아무 때나 현재가 근처 지정가로 매수</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium mb-1.5">2. 평소 루틴 — 매수가 체결된 날</p>
+                <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
+                  <li>① 매수 탭에 체결 기록 → ④ 설정 탭에서 &quot;SGOV 조회&quot;</li>
+                  <li>&quot;적정 수준&quot; → 아무것도 안 함</li>
+                  <li>소액 &quot;매도 권장&quot; → 모아뒀다가 현금이 절반쯤 줄었을 때 한 번에 매도</li>
+                  <li>연속 하락으로 큰 &quot;매도 권장&quot; → 바로 매도해서 다음 LOC 주문 걸 현금 확보</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium mb-1.5">3. 쿼터매도가 나온 날</p>
+                <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
+                  <li>② 매도 탭에 쿼터매도 기록</li>
+                  <li>④ 설정 탭 → 수익 재투입 (재투입 버튼 또는 잔여자본 직접 수정)</li>
+                  <li>&quot;SGOV 조회&quot; → &quot;매수 권장&quot;만큼 추가 파킹</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium mb-1.5">4. 사이클 종료(전량매도) 날</p>
+                <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
+                  <li>전량매도 기록 → 재설정 모달의 자본금에 아래 값 입력:</li>
+                  <li className="list-none -ml-4">
+                    <span className="font-mono text-foreground bg-input border border-border rounded px-2 py-1 inline-block mt-1">
+                      (토스 달러 잔액 + SGOV 평가액) − 다른 심볼 잔여자본 합
+                    </span>
+                  </li>
+                  <li>SGOV 평가액은 조회 결과의 괄호 안 숫자 그대로 — 이자까지 자동 포함됨</li>
+                  <li>새 사이클 첫 매수 기록 후 &quot;SGOV 조회&quot; → 커진 목표만큼 재파킹</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium mb-1.5">5. 월초 — 분배금 입금일</p>
+                <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
+                  <li>(토스 달러 잔액 + SGOV 평가액) − 모든 심볼 잔여자본 합 = 아직 반영 안 된 이자</li>
+                  <li>이 차액을 주력 심볼 하나의 잔여자본에만 더하기 (복리 재투입)</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium mb-1.5">⚠️ 주의사항</p>
+                <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
+                  <li>SGOV에 넣은 돈으로는 LOC 주문을 못 겁니다 — 현금 버퍼(N회차분)를 항상 유지</li>
+                  <li>SGOV에 넣을 돈은 반드시 <b className="text-foreground">먼저 잔여자본에 반영</b>하고 넣기 — 추가 현금 투입 시: 잔여자본 수정 → SGOV 조회 → 매수 권장만큼 매수</li>
+                  <li>전략에 넣지 않을 돈(비상금 등)은 이 계좌의 SGOV로 사지 않기 — 장부에 없는 돈이 섞이면 조회할 때마다 &quot;매도 권장&quot;이 잘못 뜹니다</li>
+                  <li>18일 안에 쓸 돈은 파킹하지 않기 — 왕복 수수료 0.2%가 이자보다 큽니다</li>
+                  <li>SGOV 매수/매도 후 앱에 기록할 필요 없음 — 잔여자본은 &quot;현금 + SGOV&quot; 합계 개념이라 변동 없음</li>
+                </ul>
+              </div>
+            </div>
+          )}
 
           {/* 설정 탭 */}
           {tab === 'setting' && (

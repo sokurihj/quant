@@ -51,9 +51,10 @@
 | `cycleStartDate` | 사이클 첫 매수일 (첫 매수 시 자동 기록) |
 
 ## UI 탭 구조
-`① 매수 기록` / `② 매도 기록` / `③ 매매일지` / `④ 설정`
-- `switchTab(name)`: `['buy','sell','journal','setting']` 배열 기준으로 탭 전환
+`① 매수 기록` / `② 매도 기록` / `③ 매매일지` / `④ 설정` (+ Next.js는 `⑤ 가이드`)
+- index.html `switchTab(name)`: `['buy','sell','journal','setting']` 배열 기준으로 탭 전환
 - journal 탭 전환 시 `renderJournal()` 자동 호출
+- Next.js `TabName`: `'buy'|'sell'|'journal'|'setting'|'guide'` — 가이드 탭은 SGOV 파킹 운용 순서(최초 파킹→평소 루틴→쿼터매도→사이클 종료→월초 정산→주의사항)를 정적 콘텐츠로 표시, 모든 심볼에서 노출
 
 ## 리버스모드 매수 탭 (Next.js)
 - 별지점(5일 평균) 입력 → 권장 주문 수량 실시간 표시: `qtyFloor(rem/4 / 별지점, sym)`

@@ -1,6 +1,6 @@
 export type Symbol = 'TQQQ' | 'SOXL' | 'HYNIX2X' | 'BTC' | 'RAM';
 export type Mode = 'normal' | 'reverse';
-export type TabName = 'buy' | 'sell' | 'journal' | 'setting';
+export type TabName = 'buy' | 'sell' | 'journal' | 'setting' | 'guide';
 
 export interface SymbolState {
   T: number;
