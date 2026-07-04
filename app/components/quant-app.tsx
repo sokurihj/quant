@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName } from '@/lib/types';
 import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees } from '@/lib/calc';
-import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP } from '@/lib/storage';
+import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN } from '@/lib/storage';
 import { StatusBar } from './quant-app/status-bar';
 import { TargetCards } from './quant-app/target-cards';
 import { LocGuide } from './quant-app/loc-guide';
@@ -58,9 +58,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [orderErrMsg, setOrderErrMsg] = useState('');
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [parkN, setParkN] = useState('4');
+  const [parkInfo, setParkInfo] = useState<{ price: number; qty: number } | null>(null);
+  const [parkLoading, setParkLoading] = useState(false);
+  const [parkStatus, setParkStatus] = useState<'idle' | 'error'>('idle');
   useEffect(() => {
     setMounted(true);
     setLastQuarterProceeds(getLastQP(sym));
+    setParkN(String(getParkN(sym)));
     // 백그라운드에서 Supabase 동기화 후 리렌더
     syncFromSupabase().then(() => setTick(t => t + 1));
   }, []);
@@ -89,6 +94,13 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const recQty = buyPriceNum > 0 && nb > 0 ? qtyFloor(recAmt / buyPriceNum, sym) : 0;
   // 첫 진입: 포지션 없지만 현재가 입력됨 → 주문 버튼 표시
   const isFirst = !!s && s.shares === 0 && s.avg === 0 && buyPriceNum > 0 && sym !== 'BTC';
+
+  // SGOV 파킹 계산 (USD 주식 전용) — N회차분 매수금액만 현금으로 남기고 나머지 파킹
+  const parkNNum = Math.max(1, Math.floor(parseFloat(parkN)) || 4);
+  const parkBuffer = s ? Math.min(parkNNum, Math.max(s.div - s.T, 0)) * nb : 0;
+  const parkAmt = s ? Math.max(0, s.rem - parkBuffer) : 0;
+  const parkHeld = parkInfo ? parkInfo.qty * parkInfo.price : 0;
+  const parkGap = parkAmt - parkHeld;
 
   const handleInit = useCallback((capital: number, division: 10 | 20 | 40) => {
     setState(sym, defState(capital, division));
@@ -247,6 +259,28 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       setSyncLoading(false);
     }
   }, [sym, refresh]);
+
+  const handleParkCheck = useCallback(async () => {
+    setParkLoading(true);
+    setParkStatus('idle');
+    try {
+      const [priceRes, holdRes] = await Promise.all([
+        fetch('/api/toss/price?symbol=SGOV'),
+        fetch('/api/toss/holdings?symbol=SGOV'),
+      ]);
+      if (!priceRes.ok || !holdRes.ok) throw new Error('SGOV 조회 실패');
+      const priceData = await priceRes.json() as { price: string | number };
+      const holdData = await holdRes.json() as { quantity: number };
+      const price = parseFloat(String(priceData.price));
+      if (!(price > 0)) throw new Error('가격 없음');
+      setParkInfo({ price, qty: holdData.quantity ?? 0 });
+    } catch {
+      setParkStatus('error');
+      setParkInfo(null);
+    } finally {
+      setParkLoading(false);
+    }
+  }, []);
 
   const loadOpenOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -921,6 +955,51 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   {syncStatus === 'ok' && <p className="text-xs text-primary">동기화 완료 — 보유수량·평단가가 업데이트됐습니다. 되돌리기로 복원 가능합니다.</p>}
                   {syncStatus === 'empty' && <p className="text-xs text-muted-foreground">토스 계좌에 {sym} 보유 내역이 없습니다. 업데이트를 건너뜁니다.</p>}
                   {syncStatus === 'error' && <p className="text-xs text-destructive">동기화 실패 — 다시 시도하세요.</p>}
+                </div>
+              )}
+              {sym !== 'BTC' && cur === 'USD' && !isReverse && s && (
+                <div className="border-t border-border pt-4 flex flex-col gap-3">
+                  <div>
+                    <p className="text-sm font-medium">SGOV 파킹 계산</p>
+                    <p className="text-xs text-muted-foreground">앞으로 N회차분 매수금액만 현금으로 남기고, 나머지 대기자금은 SGOV에 파킹합니다</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">현금으로 남길 회차 수</label>
+                    <input type="number" min={1} value={parkN}
+                      onChange={e => {
+                        setParkN(e.target.value);
+                        const n = parseInt(e.target.value);
+                        if (n >= 1) saveParkN(sym, n);
+                      }}
+                      className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">현금 버퍼 ({parkNNum}회차 × {f(nb)})</span>
+                      <span className="font-mono">{f(parkBuffer)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">권장 SGOV 파킹액</span>
+                      <span className="font-mono text-primary">{f(parkAmt)}</span>
+                    </div>
+                  </div>
+                  <button onClick={handleParkCheck} disabled={parkLoading}
+                    className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40">
+                    {parkLoading ? '조회 중...' : 'SGOV 조회 — 현재가·보유량 비교'}
+                  </button>
+                  {parkInfo && (
+                    <div className="flex flex-col gap-1 text-xs">
+                      <p className="text-muted-foreground">
+                        SGOV 현재가 <span className="font-mono text-foreground">{f(parkInfo.price)}</span> · 보유 <span className="font-mono text-foreground">{parkInfo.qty}주 ({f(parkHeld)})</span>
+                      </p>
+                      {parkGap > parkInfo.price
+                        ? <p className="text-primary">약 {Math.floor(parkGap / parkInfo.price)}주 매수 권장 — {f(parkGap)} 추가 파킹</p>
+                        : parkGap < -parkInfo.price
+                          ? <p className="text-destructive">약 {Math.floor(-parkGap / parkInfo.price)}주 매도 권장 — {f(-parkGap)} 현금 보충</p>
+                          : <p className="text-muted-foreground">적정 수준입니다 — 조정이 필요 없습니다.</p>}
+                    </div>
+                  )}
+                  {parkStatus === 'error' && <p className="text-xs text-destructive">SGOV 조회 실패 — 다시 시도하세요.</p>}
                 </div>
               )}
               <div className="border-t border-border pt-4 flex flex-col gap-3">

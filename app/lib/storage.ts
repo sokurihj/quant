@@ -50,6 +50,18 @@ export const setLastQP = (sym: Symbol, v: number) => {
   else localStorage.setItem(`lqp_${sym}`, String(v));
 };
 
+// SGOV 파킹 시 현금으로 남길 회차 수 (Supabase 동기화 불필요)
+export const getParkN = (sym: Symbol): number => {
+  if (typeof window === 'undefined') return 4;
+  const v = localStorage.getItem(`park_${sym}`);
+  const n = v ? parseInt(v) : NaN;
+  return n >= 1 ? n : 4;
+};
+export const setParkN = (sym: Symbol, n: number) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`park_${sym}`, String(n));
+};
+
 // 현재 심볼의 로컬 데이터를 Supabase에 강제 업로드
 export const pushToSupabase = async (sym: Symbol): Promise<void> => {
   if (typeof window === 'undefined') return;

@@ -40,6 +40,7 @@
 | `undo_${sym}` | 되돌리기 스택 |
 | `journal_${sym}` | 매매일지 배열 (사이클별 수익 기록) |
 | `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 (Supabase 동기화 없음; 재투입 시 삭제) |
+| `park_${sym}` | SGOV 파킹 시 현금으로 남길 회차 수 (기본 4; Supabase 동기화 없음) |
 
 ## state 주요 필드
 | 필드 | 설명 |
@@ -115,6 +116,16 @@
   - 미체결 상태는 `status: 'PENDING'` (조회 파라미터는 `status=OPEN`)
 - 주문 행: `LOC매수 / 지정매수 / 지정매도 | 가격 × 수량` + "취소" 버튼
 - "취소" 버튼 → `DELETE /api/toss/order/:orderId` (프록시가 내부적으로 `POST /api/v1/orders/:orderId/cancel` 호출) → 성공 시 해당 항목 목록에서 제거
+
+## SGOV 파킹 계산 (Next.js, 설정 탭)
+- 표시 조건: `sym !== 'BTC' && conf(sym).currency === 'USD' && !isReverse` — TQQQ/SOXL/RAM 일반모드 전용
+- 대기자금 파킹 규칙: 앞으로 N회차분 매수금액만 현금으로 남기고 나머지를 SGOV에 파킹
+  - `parkBuffer = min(N, div − T) × nextAmt(rem, div, T)` / `parkAmt = max(0, rem − parkBuffer)`
+- 회차 수 N은 입력란으로 조정 (기본 4, min 1) — `storage.ts`의 `getParkN/setParkN`으로 `park_${sym}` 키에 저장 (lqp 패턴, Supabase 미동기화)
+- "SGOV 조회" 버튼 → `/api/toss/price?symbol=SGOV` + `/api/toss/holdings?symbol=SGOV` 병렬 호출
+  - SGOV는 `SYMBOL_MAP` 등록 없이 통과 (`toTossSymbol`이 미등록 티커를 그대로 전달)
+  - 보유 평가액과 권장 파킹액의 갭이 1주 가격 초과 시 "약 X주 매수/매도 권장" 표시, 이내면 "적정 수준"
+- `parkN`/`parkInfo`/`parkLoading`/`parkStatus('idle'|'error')` state — state 변경 없는 표시 전용 기능 (undo 불필요)
 
 ## 계좌 동기화 (Next.js, 설정 탭)
 - 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용

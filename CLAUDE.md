@@ -108,6 +108,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `total`(총 자본)은 표시 전용 — 모든 매수금액 계산은 `rem`만 사용. 설정 탭에서 직접 수정 가능; 보유주식이 있으면 `rem + shares × avg` 추정값을 클릭 한 번으로 채울 수 있음
 - `conf(sym).decimals` / `conf(sym).unit`: 심볼별 수량 소수점 자리수(주식 0, BTC 6)와 단위('주' / 'BTC') — `qtyFloor(qty, sym)`로 sym-aware 수량 내림 처리
 - BTC 탭은 T+0.5(절반 체결) 옵션 없음 — 항상 T+1 고정; 매수가 입력 시 권장 BTC 수량 자동계산
+- 설정 탭 "SGOV 파킹 계산" (USD 주식·일반모드 전용): N회차분 매수금액만 현금으로 남기고 나머지 SGOV 파킹 권장액 표시 — `/api/toss/price·holdings?symbol=SGOV`로 현재가·보유량 비교, 표시 전용(state 미변경), 회차 수는 `park_${sym}` 키 저장 (상세: ui-structure.md)
 
 ## 문서
 기능 추가·변경 시 `docs/README.md` 함께 업데이트
