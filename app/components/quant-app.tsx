@@ -96,9 +96,10 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const isFirst = !!s && s.shares === 0 && s.avg === 0 && buyPriceNum > 0 && sym !== 'BTC';
 
   // SGOV 파킹 계산 (USD 주식 전용) — N회차분 매수금액만 현금으로 남기고 나머지 파킹
+  // 쿼터매도 수익(재투입 전)은 rem에 없지만 놀고 있는 현금이므로 파킹 목표에 포함
   const parkNNum = Math.max(1, Math.floor(parseFloat(parkN)) || 4);
   const parkBuffer = s ? Math.min(parkNNum, Math.max(s.div - s.T, 0)) * nb : 0;
-  const parkAmt = s ? Math.max(0, s.rem - parkBuffer) : 0;
+  const parkAmt = s ? Math.max(0, s.rem + lastQuarterProceeds - parkBuffer) : 0;
   // SGOV 보유는 계좌에 하나뿐이므로, 다른 USD 심볼의 권장 파킹액까지 합산한 목표와 비교
   const otherParkTargets = s
     ? (['TQQQ', 'SOXL', 'RAM'] as Symbol[])
@@ -108,7 +109,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
           if (!st || st.mode !== 'normal') return { sy, amt: 0 };
           const a = nextAmt(st.rem, st.div, st.T);
           const buf = Math.min(getParkN(sy), Math.max(st.div - st.T, 0)) * a;
-          return { sy, amt: Math.max(0, st.rem - buf) };
+          return { sy, amt: Math.max(0, st.rem + getLastQP(sy) - buf) };
         })
         .filter(x => x.amt > 0)
     : [];
@@ -888,9 +889,9 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               <div className="border-t border-border pt-4">
                 <p className="text-sm font-medium mb-1.5">3. 쿼터매도가 나온 날</p>
                 <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
-                  <li>② 매도 탭에 쿼터매도 기록</li>
-                  <li>④ 설정 탭 → 수익 재투입 (재투입 버튼 또는 잔여자본 직접 수정)</li>
-                  <li>&quot;SGOV 조회&quot; → &quot;매수 권장&quot;만큼 추가 파킹</li>
+                  <li>② 매도 탭에 쿼터매도 기록 — <b className="text-foreground">재투입 버튼은 누르지 않음</b> (원금이 커져 리버스모드 위험이 늘어남, 백테스트로 확인됨)</li>
+                  <li>④ 설정 탭 → &quot;SGOV 조회&quot; — 미재투입 쿼터매도 수익이 목표에 자동 포함되어 표시됨</li>
+                  <li>&quot;매수 권장&quot;만큼 SGOV 추가 매수 — 잔여자본은 건드리지 않고 끝</li>
                 </ul>
               </div>
 
@@ -920,7 +921,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                 <p className="text-sm font-medium mb-1.5">⚠️ 주의사항</p>
                 <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
                   <li>SGOV에 넣은 돈으로는 LOC 주문을 못 겁니다 — 현금 버퍼(N회차분)를 항상 유지</li>
-                  <li>SGOV에 넣을 돈은 반드시 <b className="text-foreground">먼저 잔여자본에 반영</b>하고 넣기 — 추가 현금 투입 시: 잔여자본 수정 → SGOV 조회 → 매수 권장만큼 매수</li>
+                  <li>외부에서 새로 입금하는 돈은 반드시 <b className="text-foreground">먼저 잔여자본에 반영</b>하고 넣기 — 잔여자본 수정 → SGOV 조회 → 매수 권장만큼 매수 (쿼터매도 수익은 예외 — 위 3번처럼 잔여자본 안 건드리고 바로 파킹)</li>
                   <li>전략에 넣지 않을 돈(비상금 등)은 이 계좌의 SGOV로 사지 않기 — 장부에 없는 돈이 섞이면 조회할 때마다 &quot;매도 권장&quot;이 잘못 뜹니다</li>
                   <li>18일 안에 쓸 돈은 파킹하지 않기 — 왕복 수수료 0.2%가 이자보다 큽니다</li>
                   <li>SGOV 매수/매도 후 앱에 기록할 필요 없음 — 잔여자본은 &quot;현금 + SGOV&quot; 합계 개념이라 변동 없음</li>
@@ -1067,6 +1068,12 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                       <span className="text-xs text-muted-foreground">현금 버퍼 ({parkNNum}회차 × {f(nb)})</span>
                       <span className="font-mono">{f(parkBuffer)}</span>
                     </div>
+                    {lastQuarterProceeds > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-xs text-muted-foreground">+ 쿼터매도 수익 (미재투입)</span>
+                        <span className="font-mono">{f(lastQuarterProceeds)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-xs text-muted-foreground">권장 SGOV 파킹액 ({sym} 몫)</span>
                       <span className="font-mono text-primary">{f(parkAmt)}</span>
