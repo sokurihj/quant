@@ -26,12 +26,10 @@
 - `startRem = cur.cycleStartRem` (첫 매수 시 기록된 잔금)
 - `journalProfit = journalEndRem - startRem`
 - `netProfit = journalProfit - totalFees(cycleHist, sym)` — 매매일지에 저장되는 최종 `profit`/`profitPct` (수수료 차감, 표시 전용 — `rem`/`avg` 등 실제 상태 계산에는 미반영)
-- 재설정 모달 기본값: `resetCapital = journalEndRem.toFixed(2)` (수수료 미반영 — 다음 사이클 잔금 계산은 그대로 유지)
-- `lastQuarterProceeds`/`lqp_${sym}`도 함께 0으로 초기화 — 재설정 자본에 이미 반영된 값이 다음 사이클 SGOV 파킹 목표에 중복 가산되는 것 방지
-- `handleSell('all')` → 현재 hist + 최종 매도 entry를 `JournalEntry.trades`에 포함해 매매일지 저장 → state 리셋 → 재설정 모달 표시
-- 모달(`#reset-overlay`)에서 총 자본·분할수 입력 → `handleResetConfirm()` 호출
-- `handleResetConfirm()`: `defState(capital, division)` + cycle 번호 이어받기 + hist 초기화
-- `ss('hist_${sym}', hist)` 는 type='quarter'일 때만 실행 — type='all'은 return으로 건너뜀
+- `lastQuarterProceeds`/`lqp_${sym}`도 함께 0으로 초기화 — 다음 사이클 SGOV 파킹 목표에 중복 가산되는 것 방지
+- `handleSell('all')` → 현재 hist + 최종 매도 entry를 `JournalEntry.trades`에 포함해 매매일지 저장 → state 리셋(`rem: nextRem`, cycle+1, T=0) → "사이클 완료" alert
+- **Next.js에는 재설정 모달 없음** — 잔여자본이 `nextRem`으로 자동 갱신되고 앱 계속 사용 가능; 쿼터매도 수익·SGOV 이자 반영은 설정 탭 "잔여자본 직접 수정"으로 수동 보정 (가이드 탭 4번)
+- (index.html 전용) 재설정 모달 `#reset-overlay` 표시, 기본값 `resetCapital = journalEndRem.toFixed(2)` → `handleResetConfirm()`: `defState(capital, division)` + cycle 번호 이어받기 + hist 초기화; `ss('hist_${sym}', hist)` 는 type='quarter'일 때만 실행 — type='all'은 return으로 건너뜀
 
 ## localStorage 키
 | 키 | 용도 |

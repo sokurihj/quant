@@ -901,13 +901,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               <div className="border-t border-border pt-4">
                 <p className="text-sm font-medium mb-1.5">4. 사이클 종료(전량매도) 날</p>
                 <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
-                  <li>전량매도 기록 → 재설정 모달의 자본금에 아래 값 입력:</li>
+                  <li>전량매도 기록 → 잔여자본이 자동 갱신되지만 <b className="text-foreground">쿼터매도 수익·SGOV 이자는 빠져 있음</b></li>
+                  <li>④ 설정 탭 → &quot;SGOV 조회&quot;로 평가액 확인 → &quot;잔여자본 직접 수정&quot;에 아래 값 입력:</li>
                   <li className="list-none -ml-4">
                     <span className="font-mono text-foreground bg-input border border-border rounded px-2 py-1 inline-block mt-1">
                       (토스 달러 잔액 + SGOV 평가액) − 다른 심볼 잔여자본 합
                     </span>
                   </li>
-                  <li>SGOV 평가액은 조회 결과의 괄호 안 숫자 그대로 — 이자까지 자동 포함됨</li>
+                  <li>SGOV 평가액은 조회 결과의 괄호 안 숫자 그대로(실제 보유량 × 현재가) — 권장 파킹액이 아님, 이자까지 자동 포함됨</li>
                   <li>새 사이클 첫 매수 기록 후 &quot;SGOV 조회&quot; → 커진 목표만큼 재파킹</li>
                 </ul>
               </div>
