@@ -104,7 +104,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거; 펼치면 `JournalEntry.trades`(체결내역 배열) 표시 — 사이클 종료 시점에 저장됨, 기존 항목은 undefined
 - `TradeHistory`는 `tab` prop을 받아 매수탭(buy/rbuy)·매도탭(quarter/all/rsell) 필터링; 로컬 `tick` state로 전체 삭제 즉시 반영
 - 되돌리기 스택은 `UNDO_LIMIT = 10` (storage.ts) — 초과 시 오래된 것부터 삭제
-- `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 보관하는 state — 설정 탭 잔여자본 수정 UI에서 25%/50%/100% 재투입 버튼에 활용; `lqp_${sym}` localStorage 키로 영속화되므로 심볼 전환 후에도 유지됨; 재투입 버튼 클릭 시 0으로 초기화(`setLastQP(sym, 0)`)
+- `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 보관하는 state — 잔여자본(rem)에는 재투입하지 않고 SGOV 파킹 계산(`parkAmt`/`otherParkTargets`)의 목표액에 자동 합산되는 용도로만 사용; `lqp_${sym}` localStorage 키로 영속화되므로 심볼 전환 후에도 유지됨; 전량매도(사이클 종료) 시 재설정 자본에 이미 반영되므로 0으로 초기화(`setLastQP(sym, 0)`)
 - `total`(총 자본)은 표시 전용 — 모든 매수금액 계산은 `rem`만 사용. 설정 탭에서 직접 수정 가능; 보유주식이 있으면 `rem + shares × avg` 추정값을 클릭 한 번으로 채울 수 있음
 - `conf(sym).decimals` / `conf(sym).unit`: 심볼별 수량 소수점 자리수(주식 0, BTC 6)와 단위('주' / 'BTC') — `qtyFloor(qty, sym)`로 sym-aware 수량 내림 처리
 - BTC 탭은 T+0.5(절반 체결) 옵션 없음 — 항상 T+1 고정; 매수가 입력 시 권장 BTC 수량 자동계산
