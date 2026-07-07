@@ -198,6 +198,9 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       setHist(sym, []);
       const newS = { ...cur, rem: nextRem, total: nextRem, cycle: (cur.cycle ?? 1) + 1, cycleStartRem: nextRem, cycleStartDate: null, cycleSeed: nextRem, shares: 0, T: 0, avg: 0, mode: 'normal' as const, reverseDay: 0 };
       setState(sym, newS);
+      // 사이클 종료 시 재설정 자본(가이드 4번)에 쿼터매도 수익이 이미 반영되므로 잔존값 제거 — 안 지우면 다음 사이클에서 SGOV 목표에 중복 가산됨
+      setLastQuarterProceeds(0);
+      setLastQP(sym, 0);
       setSellPrice('');
       refresh();
       alert(`사이클 완료!\n손익: ${netProfit >= 0 ? '+' : ''}${f(netProfit)} (${netProfitPct >= 0 ? '+' : ''}${netProfitPct.toFixed(2)}%)`);
@@ -889,7 +892,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               <div className="border-t border-border pt-4">
                 <p className="text-sm font-medium mb-1.5">3. 쿼터매도가 나온 날</p>
                 <ul className="text-xs text-muted-foreground flex flex-col gap-1 list-disc pl-4">
-                  <li>② 매도 탭에 쿼터매도 기록 — <b className="text-foreground">재투입 버튼은 누르지 않음</b> (원금이 커져 리버스모드 위험이 늘어남, 백테스트로 확인됨)</li>
+                  <li>② 매도 탭에 쿼터매도 기록 — <b className="text-foreground">잔여자본에는 재투입하지 않음</b> (원금이 커져 리버스모드 위험이 늘어남, 백테스트로 확인됨)</li>
                   <li>④ 설정 탭 → &quot;SGOV 조회&quot; — 미재투입 쿼터매도 수익이 목표에 자동 포함되어 표시됨</li>
                   <li>&quot;매수 권장&quot;만큼 SGOV 추가 매수 — 잔여자본은 건드리지 않고 끝</li>
                 </ul>
@@ -964,23 +967,6 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               <div className="border-t border-border pt-4 flex flex-col gap-3">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">잔여자본 직접 수정 — 실제 현금이 늘거나 줄었을 때 ({unit})</label>
-                  {lastQuarterProceeds > 0 && (
-                    <div className="mb-2 flex flex-col gap-1.5">
-                      <p className="text-xs text-muted-foreground">마지막 쿼터매도 수익: <span className="font-mono text-foreground">{f(lastQuarterProceeds)}</span> — 재투입 금액 선택</p>
-                      <div className="flex gap-2">
-                        {([25, 50, 100] as const).map(pct => {
-                          const add = lastQuarterProceeds * pct / 100;
-                          const cur = getState(sym);
-                          return (
-                            <button key={pct} onClick={() => { if (cur) { setSetRem(String(parseFloat((cur.rem + add).toFixed(2)))); setLastQuarterProceeds(0); setLastQP(sym, 0); } }}
-                              className="flex-1 text-xs border border-border rounded py-1.5 hover:bg-accent transition-colors font-mono">
-                              +{f(add)} ({pct}%)
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                   <input type="number" value={setRem} onChange={e => setSetRem(e.target.value)}
                     placeholder="실제 남은 현금 입력" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
