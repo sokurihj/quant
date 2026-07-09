@@ -14,6 +14,16 @@ import { JournalTab } from './quant-app/journal-tab';
 
 export type OpenOrder = { orderId: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS'; quantity: string; price: string };
 
+// 통화별 파킹 ETF — USD는 SGOV(초단기 미국채), KRW는 TIGER KOFR금리액티브(합성, 449170)
+const PARK_ETF: Record<'USD' | 'KRW', { code: string; label: string }> = {
+  USD: { code: 'SGOV', label: 'SGOV' },
+  KRW: { code: '449170', label: 'TIGER KOFR' },
+};
+const PARK_SYMBOLS: Record<'USD' | 'KRW', Symbol[]> = {
+  USD: ['TQQQ', 'SOXL', 'RAM'],
+  KRW: ['HYNIX2X'],
+};
+
 export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   sym: Symbol;
   openOrders: OpenOrder[] | null;
@@ -95,14 +105,15 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   // 첫 진입: 포지션 없지만 현재가 입력됨 → 주문 버튼 표시
   const isFirst = !!s && s.shares === 0 && s.avg === 0 && buyPriceNum > 0 && sym !== 'BTC';
 
-  // SGOV 파킹 계산 (USD 주식 전용) — N회차분 매수금액만 현금으로 남기고 나머지 파킹
+  // 파킹 계산 — N회차분 매수금액만 현금으로 남기고 나머지 파킹 (USD: SGOV, KRW: TIGER KOFR)
   // 쿼터매도 수익(재투입 전)은 rem에 없지만 놀고 있는 현금이므로 파킹 목표에 포함
+  const parkEtf = cur === 'USD' || cur === 'KRW' ? PARK_ETF[cur] : null;
   const parkNNum = Math.max(1, Math.floor(parseFloat(parkN)) || 4);
   const parkBuffer = s ? Math.min(parkNNum, Math.max(s.div - s.T, 0)) * nb : 0;
   const parkAmt = s ? Math.max(0, s.rem + lastQuarterProceeds - parkBuffer) : 0;
-  // SGOV 보유는 계좌에 하나뿐이므로, 다른 USD 심볼의 권장 파킹액까지 합산한 목표와 비교
-  const otherParkTargets = s
-    ? (['TQQQ', 'SOXL', 'RAM'] as Symbol[])
+  // 파킹 ETF는 통화별로 계좌에 하나뿐이므로, 같은 통화의 다른 심볼 권장 파킹액까지 합산한 목표와 비교
+  const otherParkTargets = s && (cur === 'USD' || cur === 'KRW')
+    ? PARK_SYMBOLS[cur]
         .filter(sy => sy !== sym)
         .map(sy => {
           const st = getState(sy);
@@ -279,14 +290,15 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   }, [sym, refresh]);
 
   const handleParkCheck = useCallback(async () => {
+    if (!parkEtf) return;
     setParkLoading(true);
     setParkStatus('idle');
     try {
       const [priceRes, holdRes] = await Promise.all([
-        fetch('/api/toss/price?symbol=SGOV'),
-        fetch('/api/toss/holdings?symbol=SGOV'),
+        fetch(`/api/toss/price?symbol=${parkEtf.code}`),
+        fetch(`/api/toss/holdings?symbol=${parkEtf.code}`),
       ]);
-      if (!priceRes.ok || !holdRes.ok) throw new Error('SGOV 조회 실패');
+      if (!priceRes.ok || !holdRes.ok) throw new Error(`${parkEtf.label} 조회 실패`);
       const priceData = await priceRes.json() as { price: string | number };
       const holdData = await holdRes.json() as { quantity: number };
       const price = parseFloat(String(priceData.price));
@@ -298,7 +310,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     } finally {
       setParkLoading(false);
     }
-  }, []);
+  }, [parkEtf]);
 
   const loadOpenOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -864,10 +876,10 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
           {tab === 'guide' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-sm font-medium">SGOV 파킹 운용 가이드</p>
+                <p className="text-sm font-medium">대기자금 파킹 운용 가이드</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  대기 현금을 SGOV(초단기 미국채 ETF, 이자 붙는 달러)에 넣어 연 4% 안팎의 이자를 받는 운용 순서입니다.
-                  원칙: 앞으로 N회차분 매수금액만 현금으로 남기고, 나머지는 전부 SGOV에 파킹. (미국 주식 심볼 전용)
+                  대기 현금을 파킹 ETF에 넣어 이자를 받는 운용 순서입니다. USD 심볼은 SGOV(초단기 미국채, 연 4% 안팎), HYNIX2X는 TIGER KOFR금리액티브(449170, 연 2.5% 안팎)로 동일하게 운용합니다.
+                  원칙: 앞으로 N회차분 매수금액만 현금으로 남기고, 나머지는 전부 파킹.
                 </p>
               </div>
 
@@ -927,7 +939,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   <li>SGOV에 넣은 돈으로는 LOC 주문을 못 겁니다 — 현금 버퍼(N회차분)를 항상 유지</li>
                   <li>외부에서 새로 입금하는 돈은 반드시 <b className="text-foreground">먼저 잔여자본에 반영</b>하고 넣기 — 잔여자본 수정 → SGOV 조회 → 매수 권장만큼 매수 (쿼터매도 수익은 예외 — 위 3번처럼 잔여자본 안 건드리고 바로 파킹)</li>
                   <li>전략에 넣지 않을 돈(비상금 등)은 이 계좌의 SGOV로 사지 않기 — 장부에 없는 돈이 섞이면 조회할 때마다 &quot;매도 권장&quot;이 잘못 뜹니다</li>
-                  <li>18일 안에 쓸 돈은 파킹하지 않기 — 왕복 수수료 0.2%가 이자보다 큽니다</li>
+                  <li>18일 안에 쓸 돈은 파킹하지 않기 — 왕복 수수료 0.2%가 이자보다 큽니다 (HYNIX2X는 원화 예수금도 연 1% 지급되지만 KOFR가 더 높아, 손익분기가 약 1주일로 더 짧습니다)</li>
                   <li>SGOV 매수/매도 후 앱에 기록할 필요 없음 — 잔여자본은 &quot;현금 + SGOV&quot; 합계 개념이라 변동 없음</li>
                 </ul>
               </div>
@@ -1034,11 +1046,11 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   {syncStatus === 'error' && <p className="text-xs text-destructive">동기화 실패 — 다시 시도하세요.</p>}
                 </div>
               )}
-              {sym !== 'BTC' && cur === 'USD' && !isReverse && s && (
+              {sym !== 'BTC' && parkEtf && !isReverse && s && (
                 <div className="border-t border-border pt-4 flex flex-col gap-3">
                   <div>
-                    <p className="text-sm font-medium">SGOV 파킹 계산</p>
-                    <p className="text-xs text-muted-foreground">앞으로 N회차분 매수금액만 현금으로 남기고, 나머지 대기자금은 SGOV에 파킹합니다</p>
+                    <p className="text-sm font-medium">{parkEtf.label} 파킹 계산</p>
+                    <p className="text-xs text-muted-foreground">앞으로 N회차분 매수금액만 현금으로 남기고, 나머지 대기자금은 {parkEtf.label}에 파킹합니다</p>
                   </div>
                   <div>
                     <label className="block text-xs text-muted-foreground mb-1.5">현금으로 남길 회차 수</label>
@@ -1062,7 +1074,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-xs text-muted-foreground">권장 SGOV 파킹액 ({sym} 몫)</span>
+                      <span className="text-xs text-muted-foreground">권장 {parkEtf.label} 파킹액 ({sym} 몫)</span>
                       <span className="font-mono text-primary">{f(parkAmt)}</span>
                     </div>
                     {otherParkTargets.length > 0 && (
@@ -1074,12 +1086,12 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   </div>
                   <button onClick={handleParkCheck} disabled={parkLoading}
                     className="bg-secondary text-secondary-foreground border border-border py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40">
-                    {parkLoading ? '조회 중...' : 'SGOV 조회 — 현재가·보유량 비교'}
+                    {parkLoading ? '조회 중...' : `${parkEtf.label} 조회 — 현재가·보유량 비교`}
                   </button>
                   {parkInfo && (
                     <div className="flex flex-col gap-1 text-xs">
                       <p className="text-muted-foreground">
-                        SGOV 현재가 <span className="font-mono text-foreground">{f(parkInfo.price)}</span> · 보유 <span className="font-mono text-foreground">{parkInfo.qty}주 ({f(parkHeld)})</span> · 목표 <span className="font-mono text-foreground">{f(totalParkTarget)}</span>{otherParkTargets.length > 0 && ' (계좌 전체 합산)'}
+                        {parkEtf.label} 현재가 <span className="font-mono text-foreground">{f(parkInfo.price)}</span> · 보유 <span className="font-mono text-foreground">{parkInfo.qty}주 ({f(parkHeld)})</span> · 목표 <span className="font-mono text-foreground">{f(totalParkTarget)}</span>{otherParkTargets.length > 0 && ' (계좌 전체 합산)'}
                       </p>
                       {parkGap > parkInfo.price
                         ? <p className="text-primary">약 {Math.floor(parkGap / parkInfo.price)}주 매수 권장 — {f(parkGap)} 추가 파킹</p>
@@ -1088,7 +1100,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                           : <p className="text-muted-foreground">적정 수준입니다 — 조정이 필요 없습니다.</p>}
                     </div>
                   )}
-                  {parkStatus === 'error' && <p className="text-xs text-destructive">SGOV 조회 실패 — 다시 시도하세요.</p>}
+                  {parkStatus === 'error' && <p className="text-xs text-destructive">{parkEtf.label} 조회 실패 — 다시 시도하세요.</p>}
                 </div>
               )}
               <div className="border-t border-border pt-4 flex flex-col gap-3">
