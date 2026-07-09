@@ -26,9 +26,9 @@
 - `startRem = cur.cycleStartRem` (첫 매수 시 기록된 잔금)
 - `journalProfit = journalEndRem - startRem`
 - `netProfit = journalProfit - totalFees(cycleHist, sym)` — 매매일지에 저장되는 최종 `profit`/`profitPct` (수수료 차감, 표시 전용 — `rem`/`avg` 등 실제 상태 계산에는 미반영)
-- `lastQuarterProceeds`/`lqp_${sym}`도 함께 0으로 초기화 — 다음 사이클 SGOV 파킹 목표에 중복 가산되는 것 방지
+- `lastQuarterProceeds`/`lqp_${sym}`도 함께 0으로 초기화 — 다음 사이클 파킹 목표에 중복 가산되는 것 방지
 - `handleSell('all')` → 현재 hist + 최종 매도 entry를 `JournalEntry.trades`에 포함해 매매일지 저장 → state 리셋(`rem: nextRem`, cycle+1, T=0) → "사이클 완료" alert
-- **Next.js에는 재설정 모달 없음** — 잔여자본이 `nextRem`으로 자동 갱신되고 앱 계속 사용 가능; 쿼터매도 수익·SGOV 이자 반영은 설정 탭 "잔여자본 직접 수정"으로 수동 보정 (가이드 탭 4번)
+- **Next.js에는 재설정 모달 없음** — 잔여자본이 `nextRem`으로 자동 갱신되고 앱 계속 사용 가능; 쿼터매도 수익·파킹 이자 반영은 설정 탭 "잔여자본 직접 수정"으로 수동 보정 (가이드 탭 4번)
 - (index.html 전용) 재설정 모달 `#reset-overlay` 표시, 기본값 `resetCapital = journalEndRem.toFixed(2)` → `handleResetConfirm()`: `defState(capital, division)` + cycle 번호 이어받기 + hist 초기화; `ss('hist_${sym}', hist)` 는 type='quarter'일 때만 실행 — type='all'은 return으로 건너뜀
 
 ## localStorage 키
@@ -38,8 +38,8 @@
 | `hist_${sym}` | 거래 내역 배열 |
 | `undo_${sym}` | 되돌리기 스택 |
 | `journal_${sym}` | 매매일지 배열 (사이클별 수익 기록) |
-| `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 — rem 재투입은 하지 않고 SGOV 파킹 목표에만 자동 합산 (Supabase 동기화 없음; 전량매도로 사이클 종료 시 삭제) |
-| `park_${sym}` | SGOV 파킹 시 현금으로 남길 회차 수 (기본 4; Supabase 동기화 없음) |
+| `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 — rem 재투입은 하지 않고 파킹 목표에만 자동 합산 (Supabase 동기화 없음; 전량매도로 사이클 종료 시 삭제) |
+| `park_${sym}` | 파킹 시 현금으로 남길 회차 수 (기본 4; Supabase 동기화 없음) |
 
 ## state 주요 필드
 | 필드 | 설명 |
@@ -53,7 +53,7 @@
 `① 매수 기록` / `② 매도 기록` / `③ 매매일지` / `④ 설정` (+ Next.js는 `⑤ 가이드`)
 - index.html `switchTab(name)`: `['buy','sell','journal','setting']` 배열 기준으로 탭 전환
 - journal 탭 전환 시 `renderJournal()` 자동 호출
-- Next.js `TabName`: `'buy'|'sell'|'journal'|'setting'|'guide'` — 가이드 탭은 SGOV 파킹 운용 순서(최초 파킹→평소 루틴→쿼터매도→사이클 종료→월초 정산→주의사항)를 정적 콘텐츠로 표시, 모든 심볼에서 노출
+- Next.js `TabName`: `'buy'|'sell'|'journal'|'setting'|'guide'` — 가이드 탭은 파킹 운용 순서(최초 파킹→평소 루틴→쿼터매도→사이클 종료→월초 정산→주의사항)를 정적 콘텐츠로 표시, 모든 심볼에서 노출 (USD는 SGOV, KRW는 TIGER KOFR 예시로 언급)
 
 ## 리버스모드 매수 탭 (Next.js)
 - 별지점(5일 평균) 입력 → 권장 주문 수량 실시간 표시: `qtyFloor(rem/4 / 별지점, sym)`
@@ -117,16 +117,17 @@
 - 주문 행: `LOC매수 / 지정매수 / 지정매도 | 가격 × 수량` + "취소" 버튼
 - "취소" 버튼 → `DELETE /api/toss/order/:orderId` (프록시가 내부적으로 `POST /api/v1/orders/:orderId/cancel` 호출) → 성공 시 해당 항목 목록에서 제거
 
-## SGOV 파킹 계산 (Next.js, 설정 탭)
-- 표시 조건: `sym !== 'BTC' && conf(sym).currency === 'USD' && !isReverse` — TQQQ/SOXL/RAM 일반모드 전용
-- 대기자금 파킹 규칙: 앞으로 N회차분 매수금액만 현금으로 남기고 나머지를 SGOV에 파킹
+## 파킹 계산 (Next.js, 설정 탭)
+- 표시 조건: `sym !== 'BTC' && parkEtf && !isReverse` — BTC 제외 전 심볼(USD/KRW) 일반모드 대상
+- 통화별 파킹 ETF는 `PARK_ETF` 상수(`quant-app.tsx`)로 결정: `USD → SGOV`, `KRW → TIGER KOFR금리액티브(449170)`
+- 대기자금 파킹 규칙: 앞으로 N회차분 매수금액만 현금으로 남기고 나머지를 파킹 ETF에 파킹
   - `parkBuffer = min(N, div − T) × nextAmt(rem, div, T)` / `parkAmt = max(0, rem + lastQuarterProceeds − parkBuffer)`
   - `lastQuarterProceeds`(미재투입 쿼터매도 수익)를 목표액에 자동 합산 — 값이 0보다 크면 "+ 쿼터매도 수익 (미재투입)" 행 표시
 - 회차 수 N은 입력란으로 조정 (기본 4, min 1) — `storage.ts`의 `getParkN/setParkN`으로 `park_${sym}` 키에 저장 (lqp 패턴, Supabase 미동기화)
-- "SGOV 조회" 버튼 → `/api/toss/price?symbol=SGOV` + `/api/toss/holdings?symbol=SGOV` 병렬 호출
-  - SGOV는 `SYMBOL_MAP` 등록 없이 통과 (`toTossSymbol`이 미등록 티커를 그대로 전달)
-  - **비교 기준은 계좌 전체 합산**: SGOV 보유는 계좌에 하나뿐이므로, 현재 심볼 파킹액 + 다른 USD 심볼(TQQQ/SOXL/RAM)의 권장 파킹액(`getState`+`getParkN`+`getLastQP`로 계산, 일반모드만)을 합친 `totalParkTarget`과 보유 평가액을 비교
-  - 다른 심볼 몫이 있으면 "계좌 전체 목표 (+RAM $…)" 행 추가 표시
+- "{ETF명} 조회" 버튼 → `/api/toss/price?symbol={code}` + `/api/toss/holdings?symbol={code}` 병렬 호출 (SGOV는 `SGOV`, KRW는 `449170`)
+  - 두 심볼 모두 `SYMBOL_MAP` 등록 없이 통과 (`toTossSymbol`이 미등록 티커를 그대로 전달)
+  - **비교 기준은 계좌 전체 합산**: 파킹 ETF 보유는 통화별로 계좌에 하나뿐이므로, `PARK_SYMBOLS[cur]`(USD: TQQQ/SOXL/RAM, KRW: HYNIX2X)에서 현재 심볼을 제외한 같은 통화 심볼들의 권장 파킹액(`getState`+`getParkN`+`getLastQP`로 계산, 일반모드만)을 합친 `totalParkTarget`과 보유 평가액을 비교
+  - 다른 심볼 몫이 있으면 "계좌 전체 목표 (+RAM $…)" 행 추가 표시 (KRW는 HYNIX2X 단독이라 이 행 미표시)
   - 갭이 1주 가격 초과 시 "약 X주 매수/매도 권장" 표시, 이내면 "적정 수준"
 - `parkN`/`parkInfo`/`parkLoading`/`parkStatus('idle'|'error')` state — state 변경 없는 표시 전용 기능 (undo 불필요)
 
