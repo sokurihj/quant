@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName } from '@/lib/types';
-import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees } from '@/lib/calc';
+import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees, locLadder } from '@/lib/calc';
 import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN } from '@/lib/storage';
 import { StatusBar } from './quant-app/status-bar';
 import { TargetCards } from './quant-app/target-cards';
@@ -102,8 +102,15 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const recAmt = tdelta === 0.5 ? nb / 2 : nb;
   const buyPriceNum = parseFloat(buyPrice);
   const recQty = buyPriceNum > 0 && nb > 0 ? qtyFloor(recAmt / buyPriceNum, sym) : 0;
+  // 모달 기본 수량: recQty(현재가 기준)가 maxQty(주문가 기준 안전 수량)를 넘지 않도록 캡 — 종가와 주문가 차이로 인한 과매수 방지
+  const capRecQty = (maxQty: number) => recQty > 0 && maxQty > 0 ? Math.min(recQty, maxQty) : recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
   // 첫 진입: 포지션 없지만 현재가 입력됨 → 주문 버튼 표시
   const isFirst = !!s && s.shares === 0 && s.avg === 0 && buyPriceNum > 0 && sym !== 'BTC';
+
+  // LOC 사다리 (후반전 전용) — 전반전은 평단가 LOC가 아래 구간을 이미 담당하므로 미표시
+  const showLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T >= s.div / 2;
+  const ladderByeolPt = showLadder && s ? bPrice(s.avg, sym, s.div, s.T) - conf(sym).tick : 0;
+  const ladder = showLadder ? locLadder(nb, ladderByeolPt, sym) : { baseQty: 0, rungs: [] as { n: number; price: number }[] };
 
   // 파킹 계산 — N회차분 매수금액만 현금으로 남기고 나머지 파킹 (USD: SGOV, KRW: TIGER KOFR)
   // 쿼터매도 수익(재투입 전)은 rem에 없지만 놀고 있는 현금이므로 파킹 목표에 포함
@@ -394,7 +401,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
       label = '별지점 LOC 매수';
     }
     const maxQty = qtyFloor(locAmt / orderPrice, sym);
-    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
+    const qty = capRecQty(maxQty);
     setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${Date.now()}`, maxQty, allocAmt: locAmt });
   };
 
@@ -404,7 +411,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     if (avgPt <= 0) return alert('평단가를 계산할 수 없습니다.');
     const allocAmt = nb / 2;
     const maxQty = qtyFloor(allocAmt / avgPt, sym);
-    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
+    const qty = capRecQty(maxQty);
     setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${Date.now()}`, maxQty, allocAmt });
   };
 
@@ -413,7 +420,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const orderPrice = parseFloat(limitPrice);
     if (!orderPrice || orderPrice <= 0) return alert('가격을 입력하세요.');
     const maxQty = qtyFloor(nb / orderPrice, sym);
-    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
+    const qty = capRecQty(maxQty);
     const id = `${sym}-BUY-LIMIT-${Date.now()}`;
     setOrderDraft({ label: '지정가 매수', side: 'BUY', orderType: 'LIMIT', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: id, maxQty });
   };
@@ -423,9 +430,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const orderPrice = parseFloat(limitPrice);
     if (!orderPrice || orderPrice <= 0) return alert('가격을 입력하세요.');
     const maxQty = qtyFloor(nb / orderPrice, sym);
-    const qty = recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
+    const qty = capRecQty(maxQty);
     const id = `${sym}-BUY-LOC-${Date.now()}`;
     setOrderDraft({ label: '커스텀 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: id, maxQty, allocAmt: nb });
+  };
+
+  const openLadderOrder = (price: number, qty: number, label: string) => {
+    if (!s) return;
+    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-BUY-LADDER-${Date.now()}`, maxQty: qty, allocAmt: nb });
   };
 
   const openQuarterSellOrder = () => {
@@ -671,6 +683,23 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                           <button onClick={openAvgLocOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 LOC</button>
                         )}
                       </div>
+                    </div>
+                  )}
+                  {showLadder && ladder.rungs.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs text-muted-foreground/60">LOC 사다리 (과매수 방지)</p>
+                      {ladder.baseQty > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">별지점 {f(ladderByeolPt)} × {ladder.baseQty}{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(ladderByeolPt, ladder.baseQty, `별지점 LOC 매수 (사다리 ${ladder.baseQty}${conf(sym).unit})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      )}
+                      {ladder.rungs.map(r => (
+                        <div key={r.n} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">÷{r.n} {f(r.price)} × 1{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(r.price, 1, `LOC 사다리 매수 (÷${r.n})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      ))}
                     </div>
                   )}
                   <div className="flex flex-col gap-1.5">

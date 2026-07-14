@@ -94,7 +94,7 @@
   - `maxQty`: 전략 공식 기준 최대 수량 — 매수: `qtyFloor(allocAmt / price, sym)`, 매도: 쿼터=`qtyFloor(shares×0.25, sym)`, 지정가=`shares−quarterQty`
   - `allocAmt`: 매수 주문만 보유 — 이번 회차 배정금액 (별지점=`nb` or `nb/2`, 평단가=`nb/2`)
 - 모달 수량 필드는 editable input — 자동 계산값이 기본 채워지고 직접 수정 가능
-  - 초기 수량 결정 우선순위: `recQty > maxQty > 1` (recQty와 maxQty 모두 0이면 1주로 열림)
+  - 초기 수량 결정: `capRecQty(maxQty)` — `recQty`와 `maxQty` 둘 다 양수면 `Math.min(recQty, maxQty)`, 하나만 있으면 그 값, 둘 다 0이면 1주 (recQty는 매수가=현재가 기준이라 주문가 기준 안전 수량을 넘을 수 있어 캡 필요)
   - 가격이 0 이하일 때만 alert로 차단 (수량 0은 차단하지 않음)
 - 모달 한도 표시 및 경고 로직:
   - **LOC 매수** (`timeInForce:'CLS'`): `배정금액 {allocAmt} (LOC: 종가 체결)` 표시, 초과 경고 없음 — 실제 체결가(종가)가 limit price보다 낮으므로 지정가 기준 비교는 부적절
@@ -106,6 +106,16 @@
 - LOC 주문: `timeInForce:'CLS'` — 미국 장 마감 지정가 (USD 심볼 전용, KRX 미지원)
 - 토스 API 주문 에러 패턴: `{ error: { code, message } }` 형태로 중첩됨
 - 주문 체결은 자동 감지 없음 — 체결 확인 후 매수/매도 탭에서 수동 기록 필요 (3단계 폴링 미구현)
+
+## LOC 사다리 (Next.js, 매수 탭 — 과매수 방지)
+- 표시 조건: `showLadder = hasPos && !isReverse && cur === 'USD' && T ≥ div/2` — 후반전(별지점 단일 LOC 구조) 전용
+  - 전반전은 평단가 LOC(`nb/2`)가 아래 구간을 이미 담당하므로 사다리 미표시, 기존 별지점/평단가 버튼 그대로
+- 원리: LOC는 종가 체결이라 배정금액(`nb`) 전액을 한 번에 걸면 종가가 애매한 지점에서 1주어치 과매수될 수 있음.
+  이를 `calc.ts`의 `locLadder(B, byeolPt, sym, rows=6)`으로 N등분해 1주씩 걸어두면, N번째 주문(가격 `B/N`)이 체결됐다는 것 자체가 `종가 ≤ B/N`이라는 뜻이라 `N주 × 종가 ≤ B` 항상 보장됨
+  - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = max(0, k-1)` (별지점에서 1주 줄임)
+  - `rungs`: `baseQty > 0`이면 `n = k, k+1, …, k+rows-1`부터, `baseQty = 0`(k≤1)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주
+- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음)
+- `showLadder`/`ladder`/`ladderByeolPt`는 파생값 — 별도 state·localStorage 없음 (표시 전용)
 
 ## 미체결 주문 관리 (Next.js, 매수·매도 탭)
 - 매수·매도 탭의 "토스증권 주문 전송" 섹션 안에 **미체결 주문 박스** 표시 (BTC 제외)
@@ -132,7 +142,7 @@
 - `parkN`/`parkInfo`/`parkLoading`/`parkStatus('idle'|'error')` state — state 변경 없는 표시 전용 기능 (undo 불필요)
 
 ## 계좌 동기화 (Next.js, 설정 탭)
-- 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETN 전용
+- 설정 탭 맨 아래 "계좌 동기화" 버튼 — BTC 제외, 주식·ETF 전용
 - 클릭 시 `/api/toss/holdings?symbol=` 호출 → 토스 계좌의 보유수량·평단가를 `state.shares`, `state.avg`에 덮어씀
 - 동기화 전 `saveSnapshot(sym)`으로 undo 스택 저장 → 되돌리기 가능
 - 보유량 0이면 state 업데이트 없이 'empty' 메시지 표시 (0으로 덮어쓰기 방지)

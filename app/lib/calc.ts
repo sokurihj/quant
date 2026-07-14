@@ -39,6 +39,20 @@ export const qtyFloor = (qty: number, sym: Symbol) => {
   return d === 0 ? Math.floor(qty) : parseFloat(qty.toFixed(d));
 };
 
+// LOC 사다리: 배정금액 B를 N으로 나눈 가격에 1주씩 매수 걸어두면
+// 종가가 어디로 끝나든 (N주 × B/N ≤ B) 총 매수액이 배정금액을 못 넘는다 — 과매수 방지
+export const locLadder = (B: number, byeolPt: number, sym: Symbol, rows = 6) => {
+  if (B <= 0 || byeolPt <= 0) return { baseQty: 0, rungs: [] as { n: number; price: number }[] };
+  const k = qtyFloor(B / byeolPt, sym);
+  const baseQty = Math.max(0, k - 1);
+  const startN = baseQty > 0 ? k : 1;
+  const rungs = Array.from({ length: rows }, (_, i) => {
+    const n = startN + i;
+    return { n, price: B / n };
+  });
+  return { baseQty, rungs };
+};
+
 export const revSellQty = (shares: number, div: number, sym: Symbol) =>
   qtyFloor(shares / div, sym);
 
