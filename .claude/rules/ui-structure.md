@@ -112,8 +112,8 @@
   - 전반전은 평단가 LOC(`nb/2`)가 아래 구간을 이미 담당하므로 사다리 미표시, 기존 별지점/평단가 버튼 그대로
 - 원리: LOC는 종가 체결이라 배정금액(`nb`) 전액을 한 번에 걸면 종가가 애매한 지점에서 1주어치 과매수될 수 있음.
   이를 `calc.ts`의 `locLadder(B, byeolPt, sym, rows=6)`으로 N등분해 1주씩 걸어두면, N번째 주문(가격 `B/N`)이 체결됐다는 것 자체가 `종가 ≤ B/N`이라는 뜻이라 `N주 × 종가 ≤ B` 항상 보장됨
-  - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = max(0, k-1)` (별지점에서 1주 줄임)
-  - `rungs`: `baseQty > 0`이면 `n = k, k+1, …, k+rows-1`부터, `baseQty = 0`(k≤1)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주
+  - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = k` (별지점 가격 그대로 전량, 감산 없음)
+  - `rungs`: `baseQty > 0`이면 `n = k+1, k+2, …, k+rows`부터, `baseQty = 0`(k=0)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주 (사다리 시작가가 항상 별지점보다 낮아 별지점 도달 전 선체결되는 문제 없음)
 - 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음)
 - `showLadder`/`ladder`/`ladderByeolPt`는 파생값 — 별도 state·localStorage 없음 (표시 전용)
 

@@ -44,8 +44,8 @@ export const qtyFloor = (qty: number, sym: Symbol) => {
 export const locLadder = (B: number, byeolPt: number, sym: Symbol, rows = 6) => {
   if (B <= 0 || byeolPt <= 0) return { baseQty: 0, rungs: [] as { n: number; price: number }[] };
   const k = qtyFloor(B / byeolPt, sym);
-  const baseQty = Math.max(0, k - 1);
-  const startN = baseQty > 0 ? k : 1;
+  const baseQty = k;
+  const startN = baseQty > 0 ? k + 1 : 1;
   const rungs = Array.from({ length: rows }, (_, i) => {
     const n = startN + i;
     return { n, price: B / n };
