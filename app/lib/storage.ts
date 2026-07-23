@@ -62,6 +62,17 @@ export const setParkN = (sym: Symbol, n: number) => {
   localStorage.setItem(`park_${sym}`, String(n));
 };
 
+// 쿼터매도 수익 재투입 여부 (Supabase 동기화 불필요)
+export const getReinv = (sym: Symbol): boolean => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(`reinv_${sym}`) === '1';
+};
+export const setReinv = (sym: Symbol, on: boolean) => {
+  if (typeof window === 'undefined') return;
+  if (on) localStorage.setItem(`reinv_${sym}`, '1');
+  else localStorage.removeItem(`reinv_${sym}`);
+};
+
 // 현재 심볼의 로컬 데이터를 Supabase에 강제 업로드
 export const pushToSupabase = async (sym: Symbol): Promise<void> => {
   if (typeof window === 'undefined') return;

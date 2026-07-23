@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName } from '@/lib/types';
 import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees, locLadder } from '@/lib/calc';
-import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN } from '@/lib/storage';
+import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN, getReinv, setReinv } from '@/lib/storage';
 import { StatusBar } from './quant-app/status-bar';
 import { TargetCards } from './quant-app/target-cards';
 import { LocGuide } from './quant-app/loc-guide';
@@ -69,6 +69,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [parkN, setParkN] = useState('4');
+  const [reinvOn, setReinvOn] = useState(false);
   const [parkInfo, setParkInfo] = useState<{ price: number; qty: number } | null>(null);
   const [parkLoading, setParkLoading] = useState(false);
   const [parkStatus, setParkStatus] = useState<'idle' | 'error'>('idle');
@@ -76,6 +77,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     setMounted(true);
     setLastQuarterProceeds(getLastQP(sym));
     setParkN(String(getParkN(sym)));
+    setReinvOn(getReinv(sym));
     // 백그라운드에서 Supabase 동기화 후 리렌더
     syncFromSupabase().then(() => setTick(t => t + 1));
   }, []);
@@ -194,14 +196,18 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     if (type === 'quarter') {
       const sell = qtyFloor(cur.shares * 0.25, sym);
       if (sell <= 0) return alert('보유 수량이 너무 적어 쿼터매도가 불가능합니다.');
-      const s = { ...cur, shares: parseFloat((cur.shares - sell).toFixed(6)), T: parseFloat((cur.T * 0.75).toFixed(4)) };
+      const proceeds = sell * price;
+      const s = { ...cur, shares: parseFloat((cur.shares - sell).toFixed(6)), T: parseFloat((cur.T * 0.75).toFixed(4)), ...(reinvOn ? { rem: cur.rem + proceeds } : {}) };
       setState(sym, s);
-      hist.push({ type: 'quarter', shares: sell, price, amount: sell * price, T: s.T, date: new Date().toLocaleDateString('ko') });
+      hist.push({ type: 'quarter', shares: sell, price, amount: proceeds, T: s.T, date: new Date().toLocaleDateString('ko'), ...(reinvOn ? { reinv: true } : {}) });
       setHist(sym, hist);
-      setLastQuarterProceeds(sell * price);
-      setLastQP(sym, sell * price);
+      if (!reinvOn) {
+        setLastQuarterProceeds(proceeds);
+        setLastQP(sym, proceeds);
+      }
     } else {
-      const quarterProceeds = hist.filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
+      // 재투입된 쿼터매도 수익은 이미 rem(→nextRem)에 포함되어 있으므로 미재투입분만 가산
+      const quarterProceeds = hist.filter(h => h.type === 'quarter' && !h.reinv).reduce((sum, h) => sum + h.amount, 0);
       const nextRem = cur.rem + cur.shares * price;
       const journalEndRem = nextRem + quarterProceeds;
       const startRem = cur.cycleStartRem ?? nextRem;
@@ -226,7 +232,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     }
     setSellPrice('');
     refresh();
-  }, [sym, sellPrice, refresh]);
+  }, [sym, sellPrice, reinvOn, refresh]);
 
   const handleReverseSell = useCallback(() => {
     const cur = getState(sym);
@@ -1073,6 +1079,33 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   {syncStatus === 'ok' && <p className="text-xs text-primary">동기화 완료 — 보유수량·평단가가 업데이트됐습니다. 되돌리기로 복원 가능합니다.</p>}
                   {syncStatus === 'empty' && <p className="text-xs text-muted-foreground">토스 계좌에 {sym} 보유 내역이 없습니다. 업데이트를 건너뜁니다.</p>}
                   {syncStatus === 'error' && <p className="text-xs text-destructive">동기화 실패 — 다시 시도하세요.</p>}
+                </div>
+              )}
+              {s && (
+                <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">쿼터매도 수익 재투입</p>
+                    <p className="text-xs text-muted-foreground">켜면 쿼터매도 수익이 잔여자본에 합산되어 이후 매수에 사용됩니다. 끄면 파킹 목표에만 가산됩니다 (수익 보호)</p>
+                  </div>
+                  <button onClick={() => {
+                    const next = !reinvOn;
+                    if (next) {
+                      const lqp = getLastQP(sym);
+                      if (lqp > 0 && confirm(`미재투입 쿼터매도 수익 ${f(lqp)}이 있습니다.\n지금 잔여자본에 합산할까요?`)) {
+                        saveSnapshot(sym);
+                        const cur = getState(sym);
+                        if (cur) setState(sym, { ...cur, rem: cur.rem + lqp });
+                        setLastQP(sym, 0);
+                        setLastQuarterProceeds(0);
+                      }
+                    }
+                    setReinvOn(next);
+                    setReinv(sym, next);
+                    refresh();
+                  }}
+                    className={`shrink-0 px-4 py-2 rounded text-sm font-semibold border transition-opacity hover:opacity-90 ${reinvOn ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-secondary-foreground border-border'}`}>
+                    {reinvOn ? '켜짐' : '꺼짐'}
+                  </button>
                 </div>
               )}
               {sym !== 'BTC' && parkEtf && !isReverse && s && (

@@ -20,7 +20,7 @@
 - 보유 수량 표시: `toFixed(conf(sym).decimals || 4)` + `conf(sym).unit`
 
 ## 사이클 종료 흐름 (Next.js, handleSell('all'))
-- 매매일지 수익 계산: `hist`에서 `type === 'quarter'`인 항목의 amount 합산 → `quarterProceeds`
+- 매매일지 수익 계산: `hist`에서 `type === 'quarter'`이고 `!reinv`인 항목의 amount 합산 → `quarterProceeds` (재투입된 쿼터 수익은 이미 rem에 포함되어 있어 제외)
 - `nextRem = cur.rem + cur.shares * price` (쿼터매도 수익 제외, 다음 사이클 초기 잔금)
 - `journalEndRem = nextRem + quarterProceeds` (저널용 종료 자본 — 쿼터매도 포함)
 - `startRem = cur.cycleStartRem` (첫 매수 시 기록된 잔금)
@@ -40,6 +40,7 @@
 | `journal_${sym}` | 매매일지 배열 (사이클별 수익 기록) |
 | `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 — rem 재투입은 하지 않고 파킹 목표에만 자동 합산 (Supabase 동기화 없음; 전량매도로 사이클 종료 시 삭제) |
 | `park_${sym}` | 파킹 시 현금으로 남길 회차 수 (기본 4; Supabase 동기화 없음) |
+| `reinv_${sym}` | 쿼터매도 수익 재투입 여부 ('1'이면 켜짐; Supabase 동기화 없음) — 켜진 상태의 쿼터매도는 `rem += proceeds` + hist 항목에 `reinv: true` 표시, lqp 미기록; 사이클 종료 수익 계산은 `!h.reinv` 항목만 quarterProceeds에 합산. 설정 탭 토글로 켜는 순간 기존 lqp를 rem에 합산할지 confirm |
 
 ## state 주요 필드
 | 필드 | 설명 |

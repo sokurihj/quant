@@ -24,6 +24,7 @@ export interface HistoryEntry {
   amount: number;
   T: number;
   date: string;
+  reinv?: boolean; // 쿼터매도 수익을 잔여자본에 재투입했는지 (사이클 종료 수익 계산에서 중복 가산 방지)
 }
 
 export interface JournalEntry {
