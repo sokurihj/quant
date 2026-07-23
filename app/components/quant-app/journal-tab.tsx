@@ -87,7 +87,7 @@ export function JournalTab({ sym }: { sym: Symbol }) {
   let est: { profit: number; profitPct: number; startRem: number; commission: number; secFee: number } | null = null;
   if (s && priceNum > 0) {
     const hist = getHist(sym);
-    const quarterProceeds = hist.filter(h => h.type === 'quarter').reduce((sum, h) => sum + h.amount, 0);
+    const quarterProceeds = hist.filter(h => h.type === 'quarter' && !h.reinv).reduce((sum, h) => sum + h.amount, 0);
     const estRem = s.rem + s.shares * priceNum;
     const estEndRem = estRem + quarterProceeds;
     const startRem = s.cycleStartRem ?? estRem;

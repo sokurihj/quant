@@ -1095,6 +1095,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         saveSnapshot(sym);
                         const cur = getState(sym);
                         if (cur) setState(sym, { ...cur, rem: cur.rem + lqp });
+                        // 방금 합산한 수익이 사이클 종료/예상수익 계산에서 다시 더해지지 않도록, 해당 쿼터매도 기록에 재투입 표시
+                        const hist = getHist(sym);
+                        const lastQuarterIdx = [...hist].reverse().findIndex(h => h.type === 'quarter' && !h.reinv);
+                        if (lastQuarterIdx !== -1) {
+                          const idx = hist.length - 1 - lastQuarterIdx;
+                          hist[idx] = { ...hist[idx], reinv: true };
+                          setHist(sym, hist);
+                        }
                         setLastQP(sym, 0);
                         setLastQuarterProceeds(0);
                       }
