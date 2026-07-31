@@ -470,6 +470,39 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     setOrderDraft({ label, side: 'SELL', orderType: 'LIMIT', price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-LIMIT-${Date.now()}`, maxQty });
   };
 
+  const openRevBuyOrder = () => {
+    if (!s || !hasPos || s.reverseDay === 0) return;
+    const byeolNum = parseFloat(revByeol);
+    if (!byeolNum || byeolNum <= 0) return alert('별지점(5일 평균)을 입력하세요.');
+    const orderPrice = byeolNum - conf(sym).tick; // LOC 매수/매도 겹침 방지 (별지점 -tick)
+    if (orderPrice <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
+    const amt = parseFloat(revBuyAmt) > 0 ? parseFloat(revBuyAmt) : s.rem / 4;
+    const maxQty = qtyFloor(amt / orderPrice, sym);
+    if (maxQty <= 0) return alert('매수 금액이 너무 작습니다.');
+    const isLoc = cur === 'USD';
+    setOrderDraft({ label: '리버스 매수 주문 (별지점 아래)', side: 'BUY', orderType: 'LIMIT', ...(isLoc ? { timeInForce: 'CLS' as const } : {}), price: fmtOrderPrice(orderPrice), quantity: String(maxQty), clientOrderId: `${sym}-BUY-REV-${Date.now()}`, maxQty, allocAmt: amt });
+  };
+
+  const openRevSellOrder = () => {
+    if (!s || !hasPos) return;
+    const maxQty = revSellQty(s.shares, s.div, sym);
+    if (maxQty <= 0) return alert('매도 가능 수량이 없습니다.');
+    const isD1 = s.reverseDay === 0;
+    let price: number, label: string;
+    if (isD1) {
+      // ponytail: 토스 API가 MOC 미지원 — 종가보다 확실히 낮은 지정가(평단의 절반)로 걸어 사실상 무조건 체결시킴
+      price = s.avg * 0.5;
+      label = 'MOC 대체 매도 (D1, 낮은 지정가로 무조건 체결)';
+    } else {
+      const byeolNum = parseFloat(revByeol);
+      if (!byeolNum || byeolNum <= 0) return alert('별지점(5일 평균)을 입력하세요.');
+      price = byeolNum;
+      label = '리버스 매도 주문 (별지점 위)';
+    }
+    const isLoc = cur === 'USD';
+    setOrderDraft({ label, side: 'SELL', orderType: 'LIMIT', ...(isLoc ? { timeInForce: 'CLS' as const } : {}), price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-REV-${Date.now()}`, maxQty });
+  };
+
   const checkRevExit = useCallback(() => {
     const cur = getState(sym);
     if (!cur) return null;
@@ -771,11 +804,13 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                       placeholder="예: 35.00" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                     {revByeol && parseFloat(revByeol) > 0 && (() => {
                       const byeolNum = parseFloat(revByeol);
+                      // 매도 LOC(별지점 이상 체결)와 겹치지 않도록 매수가는 별지점보다 tick만큼 낮게 (주식만 해당, BTC는 LOC 미지원)
+                      const orderPrice = sym === 'BTC' ? byeolNum : byeolNum - conf(sym).tick;
                       const amt = parseFloat(revBuyAmt) > 0 ? parseFloat(revBuyAmt) : s.rem / 4;
-                      const orderQty = qtyFloor(amt / byeolNum, sym);
+                      const orderQty = qtyFloor(amt / orderPrice, sym);
                       return (
                         <p className="text-xs text-primary font-mono mt-1.5">
-                          권장 주문 수량: {orderQty}{conf(sym).unit} ({sym === 'BTC' ? '지정가' : 'LOC'} — 별지점 아래 체결 시)
+                          매수가 {f(orderPrice)}{sym !== 'BTC' ? ' (−tick)' : ''} · {orderQty}{conf(sym).unit}
                         </p>
                       );
                     })()}
@@ -785,6 +820,43 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                     <input type="number" value={revBuyPrice} onChange={e => setRevBuyPrice(e.target.value)}
                       placeholder="LOC 체결가" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                   </div>
+                  {sym !== 'BTC' && (
+                    <div className="border-t border-border pt-3 flex flex-col gap-2">
+                      <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
+                      <div className="border border-border/50 rounded p-2 flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground/60">미체결 주문</p>
+                          <button onClick={loadOpenOrders} disabled={ordersLoading} className="text-xs text-primary hover:underline disabled:opacity-40">
+                            {ordersLoading ? '조회 중...' : '확인'}
+                          </button>
+                        </div>
+                        {openOrders !== null && (
+                          openOrders.length === 0
+                            ? <p className="text-xs text-muted-foreground/60">미체결 주문 없음</p>
+                            : openOrders.map(order => (
+                                <div key={order.orderId} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-mono text-muted-foreground">
+                                    <span className={order.side === 'BUY' ? 'text-red-500' : 'text-blue-500'}>
+                                      {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}
+                                    </span>{' '}
+                                    {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
+                                  </span>
+                                  <button
+                                    onClick={() => cancelOrderById(order.orderId)}
+                                    disabled={cancellingId === order.orderId}
+                                    className="text-xs text-destructive hover:underline disabled:opacity-40 shrink-0"
+                                  >
+                                    {cancellingId === order.orderId ? '취소 중...' : '취소'}
+                                  </button>
+                                </div>
+                              ))
+                        )}
+                      </div>
+                      <button onClick={openRevBuyOrder} className="border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">
+                        {cur === 'USD' ? '별지점 LOC 매수' : '별지점 지정가 매수'}
+                      </button>
+                    </div>
+                  )}
                   <button onClick={handleReverseBuy} className="bg-primary text-primary-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">리버스 매수 기록</button>
                 </>
               )}
@@ -900,6 +972,43 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">{s.reverseDay === 0 ? 'D1 첫날: MOC 무조건 매도 (별지점 무관)' : `D${s.reverseDay + 1}: 별지점 위 LOC 매도`}</p>
+              {sym !== 'BTC' && hasPos && (
+                <div className="border-t border-border pt-3 flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
+                  <div className="border border-border/50 rounded p-2 flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground/60">미체결 주문</p>
+                      <button onClick={loadOpenOrders} disabled={ordersLoading} className="text-xs text-primary hover:underline disabled:opacity-40">
+                        {ordersLoading ? '조회 중...' : '확인'}
+                      </button>
+                    </div>
+                    {openOrders !== null && (
+                      openOrders.length === 0
+                        ? <p className="text-xs text-muted-foreground/60">미체결 주문 없음</p>
+                        : openOrders.map(order => (
+                            <div key={order.orderId} className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-mono text-muted-foreground">
+                                <span className={order.side === 'BUY' ? 'text-red-500' : 'text-blue-500'}>
+                                  {order.side === 'BUY' ? (order.timeInForce === 'CLS' ? 'LOC매수' : '지정매수') : (order.timeInForce === 'CLS' ? 'LOC매도' : '지정매도')}
+                                </span>{' '}
+                                {f(parseFloat(order.price))} × {order.quantity}{conf(sym).unit}
+                              </span>
+                              <button
+                                onClick={() => cancelOrderById(order.orderId)}
+                                disabled={cancellingId === order.orderId}
+                                className="text-xs text-destructive hover:underline disabled:opacity-40 shrink-0"
+                              >
+                                {cancellingId === order.orderId ? '취소 중...' : '취소'}
+                              </button>
+                            </div>
+                          ))
+                    )}
+                  </div>
+                  <button onClick={openRevSellOrder} className="border border-destructive/50 text-destructive py-2 rounded text-xs font-semibold hover:bg-destructive/10 transition-colors">
+                    {s.reverseDay === 0 ? 'MOC 대체 매도 주문 (D1)' : (cur === 'USD' ? '별지점 LOC 매도' : '별지점 지정가 매도')}
+                  </button>
+                </div>
+              )}
               <button onClick={handleReverseSell} className="bg-destructive text-destructive-foreground py-2.5 rounded text-sm font-semibold hover:opacity-90 transition-opacity">리버스 매도 기록</button>
             </div>
           )}
