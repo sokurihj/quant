@@ -238,8 +238,10 @@ export async function fetchFiveDayAvg(symbol: string): Promise<string> {
 
   if (!res.ok) throw new Error(`캔들 조회 실패: ${res.status}`)
 
-  const data = await res.json() as { result: { candles: { closePrice: string }[] } }
-  const candles = data.result.candles.slice(1) // 오늘(미완성) 제외
+  const data = await res.json() as { result: { candles: { timestamp: string; closePrice: string }[] } }
+  const today = new Date().toDateString()
+  // 무조건 index 0을 자르면 장마감 후·주말 조회 시 최신 완결봉이 잘못 빠짐 — 날짜 비교로 진행 중인 오늘 봉만 제외
+  const candles = data.result.candles.filter(c => new Date(c.timestamp).toDateString() !== today).slice(0, 5)
   if (!candles.length) throw new Error('캔들 데이터 없음')
   const avg = candles.reduce((sum, c) => sum + parseFloat(c.closePrice), 0) / candles.length
   return avg.toFixed(2)
