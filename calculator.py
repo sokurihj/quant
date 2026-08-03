@@ -49,8 +49,8 @@ def reverse_t_after_buy(T: float, division: int) -> float:
 
 
 def reverse_sell_qty(shares: float, division: int) -> int:
-    """리버스 매도 수량: 직전 보유량 ÷ 분할수 내림"""
-    return math.floor(shares / division)
+    """리버스 매도 수량: 직전 보유량 ÷ (분할수/2) 내림 — 20분할=10등분, 40분할=20등분"""
+    return math.floor(shares / (division / 2))
 
 
 def reverse_buy_amount(remaining_capital: float) -> float:

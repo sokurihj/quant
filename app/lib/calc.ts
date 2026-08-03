@@ -53,8 +53,9 @@ export const locLadder = (B: number, byeolPt: number, sym: Symbol, rows = 6) => 
   return { baseQty, rungs };
 };
 
+// 리버스 매도 수량: 직전 보유량 ÷ (분할수/2) — 20분할=10등분, 40분할=20등분
 export const revSellQty = (shares: number, div: number, sym: Symbol) =>
-  qtyFloor(shares / div, sym);
+  qtyFloor(shares / (div / 2), sym);
 
 export const shouldEnterReverse = (T: number, div: number) => T > div - 1;
 

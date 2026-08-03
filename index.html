@@ -560,8 +560,8 @@ const newAvg   = (oA, oS, p, s)  => (oA * oS + p * s) / (oS + s);
 const revTSell = (T, div) => parseFloat((T * (div === 20 ? 0.9 : 0.95)).toFixed(4));
 const revTBuy  = (T, div) => parseFloat((T + (div - T) * 0.25).toFixed(4));
 
-// 리버스 매도 수량: floor(보유량 / 분할수)
-const revSellQty = (shares, div) => Math.floor(shares / div);
+// 리버스 매도 수량: floor(보유량 / (분할수/2)) — 20분할=10등분, 40분할=20등분
+const revSellQty = (shares, div) => Math.floor(shares / (div / 2));
 
 // T > div-1 이면 리버스 진입
 const shouldEnterReverse = (T, div) => T > div - 1;
@@ -640,7 +640,7 @@ if (!hasState) return;
     $('lbl-byeol').textContent   = 'SELL QTY';
     $('tg-byeol').textContent    = hasPos ? `${qty}주` : '—';
     $('tg-byeol').className      = 'tc-val r mono';
-    $('tg-byeol-pct').textContent = hasPos ? `보유 ${shares.toFixed(4)}주 ÷ ${div}` : '—';
+    $('tg-byeol-pct').textContent = hasPos ? `보유 ${shares.toFixed(4)}주 ÷ ${div / 2}` : '—';
     $('tg-byeol-pct').className  = 'tc-sub';
     $('tg-buypoint').textContent = '';
     $('card-byeol').className    = 'tcard r';

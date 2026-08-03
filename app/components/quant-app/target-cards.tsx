@@ -16,7 +16,7 @@ export function TargetCards({ s, sym, revByeol }: { s: SymbolState; sym: Symbol;
         <div className="bg-card border border-destructive/40 rounded-lg p-3">
           <p className="text-xs text-muted-foreground mb-2">오늘 매도 수량</p>
           <p className="font-mono text-xl font-bold text-destructive">{hasPos ? `${qty}${c.unit}` : '—'}</p>
-          <p className="text-xs text-muted-foreground mt-1">{hasPos ? `${s.shares.toFixed(c.decimals || 4)}${c.unit} ÷ ${s.div}` : '—'}</p>
+          <p className="text-xs text-muted-foreground mt-1">{hasPos ? `${s.shares.toFixed(c.decimals || 4)}${c.unit} ÷ ${s.div / 2}` : '—'}</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
           <p className="text-xs text-muted-foreground mb-2">리버스 별지점</p>
