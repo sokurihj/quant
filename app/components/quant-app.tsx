@@ -108,6 +108,11 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const capRecQty = (maxQty: number) => recQty > 0 && maxQty > 0 ? Math.min(recQty, maxQty) : recQty > 0 ? recQty : maxQty > 0 ? maxQty : 1;
   // 첫 진입: 포지션 없지만 현재가 입력됨 → 주문 버튼 표시
   const isFirst = !!s && s.shares === 0 && s.avg === 0 && buyPriceNum > 0 && sym !== 'BTC';
+  // 리버스 매수 여력: 잔금÷4로 살 수 있는 수량 (별지점 미입력이면 -1 = 판정 불가)
+  const revByeolNum = parseFloat(revByeol);
+  const revBuyable = !!s && revByeolNum > 0 ? qtyFloor(s.rem / 4 / revByeolNum, sym) : -1;
+  // 1주도 못 사면 원금 완전 소진 → D1처럼 별지점 무관 MOC 무조건 매도
+  const isMocSell = !!s && (s.reverseDay === 0 || revBuyable === 0);
 
   // LOC 사다리 (후반전 전용) — 전반전은 평단가 LOC가 아래 구간을 이미 담당하므로 미표시
   const showLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T >= s.div / 2;
@@ -487,12 +492,13 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     if (!s || !hasPos) return;
     const maxQty = revSellQty(s.shares, s.div, sym);
     if (maxQty <= 0) return alert('매도 가능 수량이 없습니다.');
-    const isD1 = s.reverseDay === 0;
     let price: number, label: string;
-    if (isD1) {
+    if (isMocSell) {
       // ponytail: 토스 API가 MOC 미지원 — 종가보다 확실히 낮은 지정가(평단의 절반)로 걸어 사실상 무조건 체결시킴
       price = s.avg * 0.5;
-      label = 'MOC 대체 매도 (D1, 낮은 지정가로 무조건 체결)';
+      label = s.reverseDay === 0
+        ? 'MOC 대체 매도 (D1, 낮은 지정가로 무조건 체결)'
+        : 'MOC 대체 매도 (매수 여력 소진, 낮은 지정가로 무조건 체결)';
     } else {
       const byeolNum = parseFloat(revByeol);
       if (!byeolNum || byeolNum <= 0) return alert('별지점(5일 평균)을 입력하세요.');
@@ -774,9 +780,14 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
           )}
           {tab === 'buy' && isReverse && (
             <div className="flex flex-col gap-4">
-              <div className="bg-muted/40 border border-border rounded p-3 text-sm flex justify-between">
-                <span className="text-xs text-muted-foreground">오늘 매수금액 (잔금 ÷ 4)</span>
-                <span className="font-mono">{s.reverseDay > 0 ? f(s.rem / 4) : '첫날 매수 없음'}</span>
+              <div className="bg-muted/40 border border-border rounded p-3 text-sm flex flex-col gap-1.5">
+                <div className="flex justify-between">
+                  <span className="text-xs text-muted-foreground">오늘 매수금액 (잔금 ÷ 4)</span>
+                  <span className="font-mono">{s.reverseDay > 0 ? f(s.rem / 4) : '첫날 매수 없음'}</span>
+                </div>
+                {s.reverseDay > 0 && revBuyable === 0 && (
+                  <p className="text-xs text-destructive font-semibold">매수 여력 소진 — 1{conf(sym).unit}도 매수 불가. 매수 없이 ② 매도 탭에서 MOC 매도만 진행하세요.</p>
+                )}
               </div>
               {s.reverseDay > 0 && (
                 <>
@@ -971,7 +982,13 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                     placeholder="체결가 입력" className="w-full bg-input border border-border rounded px-3 py-2 text-sm font-mono outline-none focus:border-ring" />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">{s.reverseDay === 0 ? 'D1 첫날: MOC 무조건 매도 (별지점 무관)' : `D${s.reverseDay + 1}: 별지점 위 LOC 매도`}</p>
+              <p className={`text-xs ${isMocSell && s.reverseDay > 0 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                {s.reverseDay === 0
+                  ? 'D1 첫날: MOC 무조건 매도 (별지점 무관)'
+                  : isMocSell
+                    ? `매수 여력 소진 (잔금 ÷ 4로 1${conf(sym).unit} 불가) — 매수 없이 MOC 무조건 매도`
+                    : `D${s.reverseDay + 1}: 별지점 위 LOC 매도`}
+              </p>
               {sym !== 'BTC' && hasPos && (
                 <div className="border-t border-border pt-3 flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">토스증권 주문 전송</p>
@@ -1005,7 +1022,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                     )}
                   </div>
                   <button onClick={openRevSellOrder} className="border border-destructive/50 text-destructive py-2 rounded text-xs font-semibold hover:bg-destructive/10 transition-colors">
-                    {s.reverseDay === 0 ? 'MOC 대체 매도 주문 (D1)' : (cur === 'USD' ? '별지점 LOC 매도' : '별지점 지정가 매도')}
+                    {isMocSell ? `MOC 대체 매도 주문 ${s.reverseDay === 0 ? '(D1)' : '(여력 소진)'}` : (cur === 'USD' ? '별지점 LOC 매도' : '별지점 지정가 매도')}
                   </button>
                 </div>
               )}
