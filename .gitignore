@@ -7,3 +7,7 @@ src/
 docs/
 tossapi/
 .vercel
+
+# 백테스트 가격 데이터 캐시
+soxl.csv
+soxl_backtest.py
