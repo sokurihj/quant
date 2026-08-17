@@ -84,7 +84,7 @@ export function JournalTab({ sym }: { sym: Symbol }) {
   const s = getState(sym);
   const hasOpenPosition = !!s && s.shares > 0;
   const priceNum = parseFloat(curPrice);
-  let est: { profit: number; profitPct: number; startRem: number; commission: number; secFee: number } | null = null;
+  let est: { profit: number; profitPct: number; startRem: number; realized: number; commission: number; secFee: number } | null = null;
   if (s && priceNum > 0) {
     const hist = getHist(sym);
     const quarterProceeds = hist.filter(h => h.type === 'quarter' && !h.reinv).reduce((sum, h) => sum + h.amount, 0);
@@ -92,9 +92,12 @@ export function JournalTab({ sym }: { sym: Symbol }) {
     const estEndRem = estRem + quarterProceeds;
     const startRem = s.cycleStartRem ?? estRem;
     const estTrades = [...hist, { type: 'all' as const, shares: s.shares, price: priceNum, amount: s.shares * priceNum, T: s.T, date: '' }];
-    const estProfit = estEndRem - startRem - totalFees(estTrades, sym);
+    const estFeeTotal = totalFees(estTrades, sym);
+    const estProfit = estEndRem - startRem - estFeeTotal;
     const estFees = feeBreakdown(estTrades, sym);
-    est = { profit: estProfit, profitPct: startRem > 0 ? estProfit / startRem * 100 : 0, startRem, ...estFees };
+    // 누적 실현손익 = 예상 수익 − 미실현 평가손익 + 수수료 (항등식 역산 — hist의 과거 평단 재구성 불필요)
+    const realized = estProfit - s.shares * (priceNum - s.avg) + estFeeTotal;
+    est = { profit: estProfit, profitPct: startRem > 0 ? estProfit / startRem * 100 : 0, startRem, realized, ...estFees };
   }
 
   if (journal.length === 0 && !hasOpenPosition) return (
@@ -141,6 +144,14 @@ export function JournalTab({ sym }: { sym: Symbol }) {
                 <span className="text-xs text-muted-foreground/60">사이클 시작 자본</span>
                 <span className="text-xs text-muted-foreground/60 font-mono">{f(est.startRem)}</span>
               </div>
+              {Math.abs(est.realized) >= 0.01 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground/60">누적 실현손익 (확정)</span>
+                  <span className={`text-xs font-mono ${est.realized >= 0 ? 'text-chart-2/70' : 'text-destructive/70'}`}>
+                    {est.realized >= 0 ? '+' : ''}{f(est.realized)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">예상 수익</span>
                 <span className={`font-mono text-sm font-semibold ${est.profit >= 0 ? 'text-chart-2' : 'text-destructive'}`}>
