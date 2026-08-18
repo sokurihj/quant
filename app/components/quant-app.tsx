@@ -114,10 +114,24 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   // 1주도 못 사면 원금 완전 소진 → D1처럼 별지점 무관 MOC 무조건 매도
   const isMocSell = !!s && (s.reverseDay === 0 || revBuyable === 0);
 
-  // LOC 사다리 (후반전 전용) — 전반전은 평단가 LOC가 아래 구간을 이미 담당하므로 미표시
+  // LOC 사다리 (후반전) — 별지점 단일 구조라 nb 전액을 한 사다리로
   const showLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T >= s.div / 2;
   const ladderByeolPt = showLadder && s ? bPrice(s.avg, sym, s.div, s.T) - conf(sym).tick : 0;
   const ladder = showLadder ? locLadder(nb, ladderByeolPt, sym) : { baseQty: 0, rungs: [] as { n: number; price: number }[] };
+
+  // LOC 사다리 (전반전) — 별지점·평단가에 nb/2씩 배정한 독립 사다리 2개.
+  // 각 사다리가 자기 배정액(nb/2)을 넘지 않으므로 합쳐도 nb 이내가 보장되고,
+  // 어느 쪽이 체결됐는지로 T +0.5 / +1 구분도 그대로 유지된다. 주문 수가 늘어 rows는 4로 제한.
+  const showHalfLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T < s.div / 2;
+  const halfAlloc = nb / 2;
+  const halfByeolPt = showHalfLadder && s ? bPrice(s.avg, sym, s.div, s.T) - conf(sym).tick : 0;
+  const halfAvgPt = showHalfLadder && s ? s.avg - conf(sym).tick : 0;
+  const halfLadders = showHalfLadder
+    ? [
+        { key: 'byeol', name: '별지점', pt: halfByeolPt, l: locLadder(halfAlloc, halfByeolPt, sym, 4) },
+        { key: 'avg', name: '평단가', pt: halfAvgPt, l: locLadder(halfAlloc, halfAvgPt, sym, 4) },
+      ]
+    : [];
 
   // 파킹 계산 — N회차분 매수금액만 현금으로 남기고 나머지 파킹 (USD: SGOV, KRW: TIGER KOFR)
   // 쿼터매도 수익(재투입 전)은 rem에 없지만 놀고 있는 현금이므로 파킹 목표에 포함
@@ -446,9 +460,10 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     setOrderDraft({ label: '커스텀 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: id, maxQty, allocAmt: nb });
   };
 
-  const openLadderOrder = (price: number, qty: number, label: string) => {
+  // alloc: 이 사다리의 배정금액 — 후반전은 nb 전액, 전반전은 별지점/평단가 각 nb/2
+  const openLadderOrder = (price: number, qty: number, label: string, alloc = nb) => {
     if (!s) return;
-    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-BUY-LADDER-${Date.now()}`, maxQty: qty, allocAmt: nb });
+    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(price), quantity: String(qty), clientOrderId: `${sym}-BUY-LADDER-${Date.now()}`, maxQty: qty, allocAmt: alloc });
   };
 
   const openQuarterSellOrder = () => {
@@ -745,6 +760,29 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                           <button onClick={() => openLadderOrder(r.price, 1, `LOC 사다리 매수 (÷${r.n})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {showHalfLadder && halfLadders.some(g => g.l.rungs.length > 0) && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs text-muted-foreground/60">LOC 사다리 (과매수 방지) · 전반전</p>
+                      {halfLadders.map(g => (
+                        <div key={g.key} className="flex flex-col gap-1">
+                          <p className="text-xs text-muted-foreground/50">{g.name} {f(g.pt)} 이하 · 배정 {f(halfAlloc)}</p>
+                          {g.l.baseQty > 0 && (
+                            <div className="flex items-center justify-between gap-2 pl-2">
+                              <span className="text-xs font-mono text-muted-foreground">{f(g.pt)} × {g.l.baseQty}{conf(sym).unit}</span>
+                              <button onClick={() => openLadderOrder(g.pt, g.l.baseQty, `${g.name} LOC 매수 (사다리 ${g.l.baseQty}${conf(sym).unit})`, halfAlloc)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                            </div>
+                          )}
+                          {g.l.rungs.map(r => (
+                            <div key={r.n} className="flex items-center justify-between gap-2 pl-2">
+                              <span className="text-xs font-mono text-muted-foreground">÷{r.n} {f(r.price)} × 1{conf(sym).unit}</span>
+                              <button onClick={() => openLadderOrder(r.price, 1, `${g.name} LOC 사다리 (÷${r.n})`, halfAlloc)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground/50">별지점 쪽만 체결 → 절반 체결(T +0.5) / 양쪽 다 체결 → 전체 체결(T +1)</p>
                     </div>
                   )}
                   <div className="flex flex-col gap-1.5">

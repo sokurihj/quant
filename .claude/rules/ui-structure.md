@@ -109,14 +109,18 @@
 - 주문 체결은 자동 감지 없음 — 체결 확인 후 매수/매도 탭에서 수동 기록 필요 (3단계 폴링 미구현)
 
 ## LOC 사다리 (Next.js, 매수 탭 — 과매수 방지)
-- 표시 조건: `showLadder = hasPos && !isReverse && cur === 'USD' && T ≥ div/2` — 후반전(별지점 단일 LOC 구조) 전용
-  - 전반전은 평단가 LOC(`nb/2`)가 아래 구간을 이미 담당하므로 사다리 미표시, 기존 별지점/평단가 버튼 그대로
-- 원리: LOC는 종가 체결이라 배정금액(`nb`) 전액을 한 번에 걸면 종가가 애매한 지점에서 1주어치 과매수될 수 있음.
-  이를 `calc.ts`의 `locLadder(B, byeolPt, sym, rows=6)`으로 N등분해 1주씩 걸어두면, N번째 주문(가격 `B/N`)이 체결됐다는 것 자체가 `종가 ≤ B/N`이라는 뜻이라 `N주 × 종가 ≤ B` 항상 보장됨
-  - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = k` (별지점 가격 그대로 전량, 감산 없음)
-  - `rungs`: `baseQty > 0`이면 `n = k+1, k+2, …, k+rows`부터, `baseQty = 0`(k=0)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주 (사다리 시작가가 항상 별지점보다 낮아 별지점 도달 전 선체결되는 문제 없음)
-- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음)
-- `showLadder`/`ladder`/`ladderByeolPt`는 파생값 — 별도 state·localStorage 없음 (표시 전용)
+- 원리: LOC는 종가 체결이라 배정금액(`B`) 전액을 한 번에 걸면 종가가 애매한 지점에서 1주어치 과매수될 수 있음.
+  이를 `calc.ts`의 `locLadder(B, byeolPt, sym, rows)`으로 N등분해 1주씩 걸어두면, N번째 주문(가격 `B/N`)이 체결됐다는 것 자체가 `종가 ≤ B/N`이라는 뜻이라 `N주 × 종가 ≤ B` 항상 보장됨
+  - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = k` (기준가 그대로 전량, 감산 없음)
+  - `rungs`: `baseQty > 0`이면 `n = k+1, k+2, …, k+rows`부터, `baseQty = 0`(k=0)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주 (사다리 시작가가 항상 기준가보다 낮아 기준가 도달 전 선체결되는 문제 없음)
+- **후반전** `showLadder = hasPos && !isReverse && cur === 'USD' && T ≥ div/2` — 별지점 단일 구조라 사다리 1개(`B = nb`, `rows=6` 기본)
+- **전반전** `showHalfLadder = … && T < div/2` — 별지점·평단가에 `nb/2`씩 배정한 **독립 사다리 2개** (`halfLadders` 배열, `rows=4`)
+  - 기준가: `halfByeolPt = bPrice − tick`, `halfAvgPt = avg − tick`
+  - 각 사다리가 자기 배정액(`nb/2`)을 넘지 않으므로 둘을 다 걸어도 합계 ≤ `nb` 보장
+  - 어느 쪽이 체결됐는지로 T 구분 유지 — 별지점 쪽만 체결 → T +0.5 / 양쪽 다 → T +1 (안내 문구 하단 표시)
+  - 두 사다리의 `rungs` 가격은 `B`가 같아 겹칠 수 있으나, 각각 별개 주문으로 걸면 합계 보장은 유지됨 (병합하지 않음)
+- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label, alloc = nb)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음). `alloc`은 모달의 배정금액 표시용 — 전반전 사다리는 `nb/2`를 넘김
+- `showLadder`/`ladder`/`ladderByeolPt`/`showHalfLadder`/`halfLadders`/`halfAlloc`은 모두 파생값 — 별도 state·localStorage 없음 (표시 전용)
 
 ## 미체결 주문 관리 (Next.js, 매수·매도 탭)
 - 매수·매도 탭의 "토스증권 주문 전송" 섹션 안에 **미체결 주문 박스** 표시 (BTC 제외)
