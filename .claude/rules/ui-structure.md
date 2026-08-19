@@ -114,13 +114,15 @@
   - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = k` (기준가 그대로 전량, 감산 없음)
   - `rungs`: `baseQty > 0`이면 `n = k+1, k+2, …, k+rows`부터, `baseQty = 0`(k=0)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주 (사다리 시작가가 항상 기준가보다 낮아 기준가 도달 전 선체결되는 문제 없음)
 - **후반전** `showLadder = hasPos && !isReverse && cur === 'USD' && T ≥ div/2` — 별지점 단일 구조라 사다리 1개(`B = nb`, `rows=6` 기본)
-- **전반전** `showHalfLadder = … && T < div/2` — 별지점·평단가에 `nb/2`씩 배정한 **독립 사다리 2개** (`halfLadders` 배열, `rows=4`)
+- **전반전** `showHalfLadder = … && T < div/2` — `calc.ts`의 `halfLadder(nb, byeolPt, avgPt, sym, rows=4)` 사용
   - 기준가: `halfByeolPt = bPrice − tick`, `halfAvgPt = avg − tick`
-  - 각 사다리가 자기 배정액(`nb/2`)을 넘지 않으므로 둘을 다 걸어도 합계 ≤ `nb` 보장
-  - 어느 쪽이 체결됐는지로 T 구분 유지 — 별지점 쪽만 체결 → T +0.5 / 양쪽 다 → T +1 (안내 문구 하단 표시)
-  - 두 사다리의 `rungs` 가격은 `B`가 같아 겹칠 수 있으나, 각각 별개 주문으로 걸면 합계 보장은 유지됨 (병합하지 않음)
-- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label, alloc = nb)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음). `alloc`은 모달의 배정금액 표시용 — 전반전 사다리는 `nb/2`를 넘김
-- `showLadder`/`ladder`/`ladderByeolPt`/`showHalfLadder`/`halfLadders`/`halfAlloc`은 모두 파생값 — 별도 state·localStorage 없음 (표시 전용)
+  - **예산을 `nb/2`씩 쪼개 독립 사다리 2개를 만들면 내림(floor)이 두 번 일어나 배정액을 크게 남긴다** — 실제 사례: `nb=$749.40`, 종가 `$129.10`에서 각 `$374.70`으로 2주+2주=4주(사용 $516)에 그침. 통합이면 `floor(749.40/129.10)=5주`
+  - 그래서 첫 단만 나눈다: `byeolQty = qtyFloor(nb/2 / byeolPt)` (별지점만 체결되는 T +0.5 구간의 절반 한도 준수), `avgQty = qtyFloor(nb/avgPt) − byeolQty` (평단 첫 단이 전액 기준 나머지를 흡수)
+  - `rungs`는 `nb` 전액 기준 **하나만 공유**: `m = m0+1, …, m0+rows` (`m0 = qtyFloor(nb/avgPt)`), 가격 `nb/m`, 수량 1주 — m번째 체결 = `종가 ≤ nb/m` → `m주 × 종가 ≤ nb` 보장
+  - 결과: 평단가 이하 종가에서는 항상 `qtyFloor(nb/종가)` 달성, 별지점~평단 구간은 `nb/2` 한도 유지 → T +0.5 / +1 구분 그대로
+  - 주문 수도 10건 → 6건으로 감소
+- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label, alloc = nb)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음). `alloc`은 모달의 배정금액 표시용 — 전반전 **별지점 단만** `nb/2`를 넘기고, 평단 단·사다리 단은 `nb` 전액
+- `showLadder`/`ladder`/`ladderByeolPt`/`showHalfLadder`/`halfLad`는 모두 파생값 — 별도 state·localStorage 없음 (표시 전용)
 
 ## 미체결 주문 관리 (Next.js, 매수·매도 탭)
 - 매수·매도 탭의 "토스증권 주문 전송" 섹션 안에 **미체결 주문 박스** 표시 (BTC 제외)

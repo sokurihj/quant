@@ -53,6 +53,22 @@ export const locLadder = (B: number, byeolPt: number, sym: Symbol, rows = 6) => 
   return { baseQty, rungs };
 };
 
+// 전반전 LOC 사다리: 별지점·평단가에 예산을 절반씩 쪼개면 내림이 두 번 일어나
+// 배정액을 크게 남긴다(예: 각 nb/2로 2주+2주=4주, 통합이면 5주).
+// 별지점 첫 단만 nb/2 기준으로 잡아 T +0.5 구간의 절반 한도를 지키고,
+// 평단 첫 단이 nb 전액 기준 나머지를 흡수 → 평단 이하에서는 항상 qtyFloor(nb/종가) 달성.
+// 사다리 단은 nb 전액 기준 하나로 공유한다 (m번째가 체결 = 종가 ≤ nb/m → m주 × 종가 ≤ nb).
+export const halfLadder = (nb: number, byeolPt: number, avgPt: number, sym: Symbol, rows = 4) => {
+  if (nb <= 0 || byeolPt <= 0 || avgPt <= 0) return { byeolQty: 0, avgQty: 0, rungs: [] as { m: number; price: number }[] };
+  const byeolQty = qtyFloor(nb / 2 / byeolPt, sym);
+  const m0 = qtyFloor(nb / avgPt, sym);
+  const rungs = Array.from({ length: rows }, (_, i) => {
+    const m = m0 + 1 + i;
+    return { m, price: nb / m };
+  });
+  return { byeolQty, avgQty: m0 - byeolQty, rungs };
+};
+
 // 리버스 매도 수량: 직전 보유량 ÷ (분할수/2) — 20분할=10등분, 40분할=20등분
 export const revSellQty = (shares: number, div: number, sym: Symbol) =>
   qtyFloor(shares / (div / 2), sym);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName } from '@/lib/types';
-import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees, locLadder } from '@/lib/calc';
+import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees, locLadder, halfLadder } from '@/lib/calc';
 import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN, getReinv, setReinv } from '@/lib/storage';
 import { StatusBar } from './quant-app/status-bar';
 import { TargetCards } from './quant-app/target-cards';
@@ -119,19 +119,13 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const ladderByeolPt = showLadder && s ? bPrice(s.avg, sym, s.div, s.T) - conf(sym).tick : 0;
   const ladder = showLadder ? locLadder(nb, ladderByeolPt, sym) : { baseQty: 0, rungs: [] as { n: number; price: number }[] };
 
-  // LOC 사다리 (전반전) — 별지점·평단가에 nb/2씩 배정한 독립 사다리 2개.
-  // 각 사다리가 자기 배정액(nb/2)을 넘지 않으므로 합쳐도 nb 이내가 보장되고,
-  // 어느 쪽이 체결됐는지로 T +0.5 / +1 구분도 그대로 유지된다. 주문 수가 늘어 rows는 4로 제한.
+  // LOC 사다리 (전반전) — 별지점 첫 단은 nb/2, 평단 첫 단이 nb 전액 기준 나머지를 흡수 (calc.ts halfLadder 참고)
   const showHalfLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T < s.div / 2;
-  const halfAlloc = nb / 2;
   const halfByeolPt = showHalfLadder && s ? bPrice(s.avg, sym, s.div, s.T) - conf(sym).tick : 0;
   const halfAvgPt = showHalfLadder && s ? s.avg - conf(sym).tick : 0;
-  const halfLadders = showHalfLadder
-    ? [
-        { key: 'byeol', name: '별지점', pt: halfByeolPt, l: locLadder(halfAlloc, halfByeolPt, sym, 4) },
-        { key: 'avg', name: '평단가', pt: halfAvgPt, l: locLadder(halfAlloc, halfAvgPt, sym, 4) },
-      ]
-    : [];
+  const halfLad = showHalfLadder
+    ? halfLadder(nb, halfByeolPt, halfAvgPt, sym)
+    : { byeolQty: 0, avgQty: 0, rungs: [] as { m: number; price: number }[] };
 
   // 파킹 계산 — N회차분 매수금액만 현금으로 남기고 나머지 파킹 (USD: SGOV, KRW: TIGER KOFR)
   // 쿼터매도 수익(재투입 전)은 rem에 없지만 놀고 있는 현금이므로 파킹 목표에 포함
@@ -762,27 +756,28 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                       ))}
                     </div>
                   )}
-                  {showHalfLadder && halfLadders.some(g => g.l.rungs.length > 0) && (
-                    <div className="flex flex-col gap-2">
+                  {showHalfLadder && (halfLad.byeolQty > 0 || halfLad.avgQty > 0) && (
+                    <div className="flex flex-col gap-1.5">
                       <p className="text-xs text-muted-foreground/60">LOC 사다리 (과매수 방지) · 전반전</p>
-                      {halfLadders.map(g => (
-                        <div key={g.key} className="flex flex-col gap-1">
-                          <p className="text-xs text-muted-foreground/50">{g.name} {f(g.pt)} 이하 · 배정 {f(halfAlloc)}</p>
-                          {g.l.baseQty > 0 && (
-                            <div className="flex items-center justify-between gap-2 pl-2">
-                              <span className="text-xs font-mono text-muted-foreground">{f(g.pt)} × {g.l.baseQty}{conf(sym).unit}</span>
-                              <button onClick={() => openLadderOrder(g.pt, g.l.baseQty, `${g.name} LOC 매수 (사다리 ${g.l.baseQty}${conf(sym).unit})`, halfAlloc)} className="text-xs text-primary hover:underline shrink-0">주문</button>
-                            </div>
-                          )}
-                          {g.l.rungs.map(r => (
-                            <div key={r.n} className="flex items-center justify-between gap-2 pl-2">
-                              <span className="text-xs font-mono text-muted-foreground">÷{r.n} {f(r.price)} × 1{conf(sym).unit}</span>
-                              <button onClick={() => openLadderOrder(r.price, 1, `${g.name} LOC 사다리 (÷${r.n})`, halfAlloc)} className="text-xs text-primary hover:underline shrink-0">주문</button>
-                            </div>
-                          ))}
+                      {halfLad.byeolQty > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">별지점 {f(halfByeolPt)} × {halfLad.byeolQty}{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(halfByeolPt, halfLad.byeolQty, `별지점 LOC 매수 (${halfLad.byeolQty}${conf(sym).unit})`, nb / 2)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      )}
+                      {halfLad.avgQty > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">평단가 {f(halfAvgPt)} × {halfLad.avgQty}{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(halfAvgPt, halfLad.avgQty, `평단가 LOC 매수 (${halfLad.avgQty}${conf(sym).unit})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      )}
+                      {halfLad.rungs.map(r => (
+                        <div key={r.m} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">÷{r.m} {f(r.price)} × 1{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(r.price, 1, `LOC 사다리 매수 (÷${r.m})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
                         </div>
                       ))}
-                      <p className="text-xs text-muted-foreground/50">별지점 쪽만 체결 → 절반 체결(T +0.5) / 양쪽 다 체결 → 전체 체결(T +1)</p>
+                      <p className="text-xs text-muted-foreground/50">별지점만 체결 → 절반 체결(T +0.5) / 평단가까지 체결 → 전체 체결(T +1)</p>
                     </div>
                   )}
                   <div className="flex flex-col gap-1.5">
