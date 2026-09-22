@@ -1180,7 +1180,8 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                 <p className="text-xs text-muted-foreground">T값·평단가·보유주식은 유지되고, 잔여자본과 화면의 총 자본이 늘어난(줄어든) 만큼 같이 변경됩니다.</p>
                 <button onClick={() => {
                   const val = parseFloat(setRem);
-                  if (!val || val <= 0) return alert('올바른 금액을 입력하세요.');
+                  // 전액 매수로 잔여자본이 0이 되는 경우가 실제로 있으므로 0은 허용한다
+                  if (!Number.isFinite(val) || val < 0) return alert('올바른 금액을 입력하세요.');
                   const cur = getState(sym);
                   if (!cur) return;
                   const delta = val - cur.rem;
