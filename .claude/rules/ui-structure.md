@@ -29,6 +29,7 @@
 - `lastQuarterProceeds`/`lqp_${sym}`도 함께 0으로 초기화 — 다음 사이클 파킹 목표에 중복 가산되는 것 방지
 - `handleSell('all')` → 현재 hist + 최종 매도 entry를 `JournalEntry.trades`에 포함해 매매일지 저장 → state 리셋(`rem: nextRem`, cycle+1, T=0) → "사이클 완료" alert
 - **Next.js에는 재설정 모달 없음** — 잔여자본이 `nextRem`으로 자동 갱신되고 앱 계속 사용 가능; 쿼터매도 수익·파킹 이자 반영은 설정 탭 "잔여자본 직접 수정"으로 수동 보정 (가이드 탭 4번)
+  - "잔여자본 직접 수정"은 **0을 허용**한다 (전액 매수로 잔금이 없는 경우가 실제로 있음). 음수·빈값만 거부하며, 수정 시 `cycleStartRem`도 `delta`만큼 함께 조정되어 사이클 수익 계산이 유지됨
 - (index.html 전용) 재설정 모달 `#reset-overlay` 표시, 기본값 `resetCapital = journalEndRem.toFixed(2)` → `handleResetConfirm()`: `defState(capital, division)` + cycle 번호 이어받기 + hist 초기화; `ss('hist_${sym}', hist)` 는 type='quarter'일 때만 실행 — type='all'은 return으로 건너뜀
 
 ## localStorage 키
@@ -40,6 +41,8 @@
 | `journal_${sym}` | 매매일지 배열 (사이클별 수익 기록) |
 | `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 — rem 재투입은 하지 않고 파킹 목표에만 자동 합산 (Supabase 동기화 없음; 전량매도로 사이클 종료 시 삭제) |
 | `park_${sym}` | 파킹 시 현금으로 남길 회차 수 (기본 4; Supabase 동기화 없음) |
+| `pf_assets` | 포트폴리오 자산 목록 (`Asset[]`) — 심볼과 무관한 전역 값 |
+| `pf_targets` | 분류별 목표 비중 (`{주식, 코인, 현금}`, 기본 65/20/15) |
 | `reinv_${sym}` | 쿼터매도 수익 재투입 여부 ('1'이면 켜짐; Supabase 동기화 없음) — 켜진 상태의 쿼터매도는 `rem += proceeds` + hist 항목에 `reinv: true` 표시, lqp 미기록; 사이클 종료 수익 계산은 `!h.reinv` 항목만 quarterProceeds에 합산. 설정 탭 토글로 켜는 순간 기존 lqp를 rem에 합산할지 confirm |
 
 ## state 주요 필드
@@ -54,6 +57,7 @@
 `① 매수 기록` / `② 매도 기록` / `③ 매매일지` / `④ 설정` (+ Next.js는 `⑤ 가이드`)
 - index.html `switchTab(name)`: `['buy','sell','journal','setting']` 배열 기준으로 탭 전환
 - journal 탭 전환 시 `renderJournal()` 자동 호출
+- 심볼 탭에 `'ALL'`(전체) 추가 — 선택 시 `QuantApp` 대신 `Portfolio`를 렌더하므로 아래 `TabName` 구조와 무관
 - Next.js `TabName`: `'buy'|'sell'|'journal'|'setting'|'guide'` — 가이드 탭은 파킹 운용 순서(최초 파킹→평소 루틴→쿼터매도→사이클 종료→월초 정산→주의사항)를 정적 콘텐츠로 표시, 모든 심볼에서 노출 (USD는 SGOV, KRW는 TIGER KOFR 예시로 언급)
 
 ## 리버스모드 매수 탭 (Next.js)
@@ -154,3 +158,15 @@
 - 동기화 전 `saveSnapshot(sym)`으로 undo 스택 저장 → 되돌리기 가능
 - 보유량 0이면 state 업데이트 없이 'empty' 메시지 표시 (0으로 덮어쓰기 방지)
 - `syncLoading` / `syncStatus('idle'|'ok'|'error'|'empty')` state로 UI 피드백
+
+## 포트폴리오 ('전체' 탭, Next.js — portfolio.tsx)
+- 심볼별 상태와 별개로 동작 — `pf_assets`(자산 목록) / `pf_targets`(목표 비중) 두 키만 사용
+- `Asset.cat`(`주식`/`코인`/`현금`)으로 묶어 분류별 합계·비중·목표 대비 편차를 표시; 비중 막대에 목표 위치를 세로선으로 겹쳐 그림
+- 평가액은 모두 **원화 환산** 후 비교하고, 각 금액 옆(또는 아래)에 달러 환산액을 병기
+- 자산 유형별 평가 방식
+  - `sym`: `getState(sym)`의 `rem + shares × 현재가`. 현재가는 `/api/market`의 `stocks`, 못 받으면 `avg`로 근사. **BTC 심볼은 토스 미지원**이라 업비트 `KRW-BTC`를 환율로 나눠 달러 가격으로 사용. `conf(sym).currency === 'USD'`면 환율을 곱해 원화로 환산
+  - `coin`: `qty × 업비트 시세`. 입력은 **금액(원/달러) 또는 수량** 중 선택 — 금액으로 넣어도 시세로 나눠 **수량으로 저장**하므로 이후 시세 변동이 자동 반영됨. 거래소마다 시세가 달라(김프/역프) 금액 환산에는 오차가 생기므로, 해외 거래소 보유분은 수량 직접 입력이 정확
+  - `usd` / `krw`: 고정 금액 (현금성). `usd`는 환율만 적용
+- 자산 행의 `수정` 버튼으로 `qty`/`usd`/`krw`를 인라인 편집 (Enter 저장, Esc 취소). **`sym` 자산은 앱 상태에서 자동 계산되므로 수정 버튼 없음**
+- 코인 시세는 등록 여부와 무관하게 **항상 전체(KRW-BTC/ETH/SOL)를 조회** — 첫 코인 등록 시 금액→수량 환산에 시세가 필요하기 때문
+- 표시 전용 기능이라 undo 스택을 쓰지 않음

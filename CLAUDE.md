@@ -32,11 +32,12 @@ python trade.py init TQQQ 10000 40
 ```
 app/                    ← Next.js 16 + shadcn UI (주 UI)
   app/
-    page.tsx            ← 심볼 탭(TQQQ/SOXL/HYNIX2X/BTC/RAM) + QuantApp 마운트
+    page.tsx            ← 심볼 탭(TQQQ/SOXL/HYNIX2X/BTC/RAM) + '전체'(ALL) 탭 — ALL이면 Portfolio, 아니면 QuantApp 마운트
     layout.tsx          ← Merriweather + JetBrains Mono 폰트
     globals.css         ← shadcn 테마 (warm earthy palette)
   components/
     quant-app.tsx       ← "use client" 메인 컴포넌트. 전체 상태·핸들러 보유
+    portfolio.tsx       ← '전체' 탭 — 주식/코인/현금 3분류 자산 비중 관리 (등록·수정·목표 대비 편차)
   lib/
     types.ts            ← TypeScript 타입 (SymbolState, HistoryEntry 등)
     calc.ts             ← 순수 계산 함수 (bPrice, ftPrice, nextAmt, qtyFloor 등)
@@ -50,6 +51,7 @@ app/                    ← Next.js 16 + shadcn UI (주 UI)
                            주문 에러 구조: { error: { code, message } } — message 필드로 추출
   app/
     api/
+      market/route.ts   ← GET /api/market?coins=&stocks= (환율·업비트 코인 시세·토스 주식 시세 통합 조회)
       toss/
         price/route.ts    ← GET /api/toss/price?symbol= (현재가, 소수점 2자리)
         candles/route.ts  ← GET /api/toss/candles?symbol= (전 5거래일 종가 평균)
@@ -109,6 +111,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - `total`(총 자본)은 표시 전용 — 모든 매수금액 계산은 `rem`만 사용. 설정 탭에서 직접 수정 가능; 보유주식이 있으면 `rem + shares × avg` 추정값을 클릭 한 번으로 채울 수 있음
 - `conf(sym).decimals` / `conf(sym).unit`: 심볼별 수량 소수점 자리수(주식 0, BTC 6)와 단위('주' / 'BTC') — `qtyFloor(qty, sym)`로 sym-aware 수량 내림 처리
 - BTC 탭은 T+0.5(절반 체결) 옵션 없음 — 항상 T+1 고정; 매수가 입력 시 권장 BTC 수량 자동계산
+- '전체' 탭 포트폴리오 (`portfolio.tsx`): 자산을 `주식`/`코인`/`현금`으로 등록해 목표 비중 대비 초과·여유를 금액으로 표시. 평가액 산출은 `Asset`의 세 방식 중 하나 — `sym`(앱 심볼 → `rem + shares × 현재가`, USD면 환율 곱), `coin`(업비트 마켓코드 → `qty × 시세`), `usd`/`krw`(고정 금액). 코인은 **금액 또는 수량**으로 입력하되 항상 수량으로 저장해 시세 변동이 자동 반영됨 (거래소 간 시세 차이 때문에 OKX 등 해외 보유분은 수량 직접 입력이 정확). 모든 금액에 달러 환산액 병기
 - 설정 탭 "파킹 계산" (BTC 제외·일반모드 전용): N회차분 매수금액만 현금으로 남기고 나머지 파킹 권장액 표시 — USD 심볼은 SGOV, HYNIX2X(KRW)는 TIGER KOFR금리액티브(449170)로 `PARK_ETF` 상수가 통화별 분기; `/api/toss/price·holdings?symbol={code}`로 현재가·보유량 비교, 표시 전용(state 미변경), 회차 수는 `park_${sym}` 키 저장 (상세: ui-structure.md)
 
 ## 문서
