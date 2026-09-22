@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { QuantApp } from '@/components/quant-app';
+import { Portfolio } from '@/components/portfolio';
 import type { Symbol, OpenOrder } from '@/components/quant-app';
 
 export default function Home() {
-  const [sym, setSym] = useState<Symbol>('TQQQ');
+  // 'ALL'은 심볼이 아니라 전체 포트폴리오 비중 화면을 가리킨다
+  const [sym, setSym] = useState<Symbol | 'ALL'>('TQQQ');
   const [openOrdersCache, setOpenOrdersCache] = useState<Partial<Record<Symbol, OpenOrder[] | null>>>({});
 
   return (
@@ -18,7 +20,7 @@ export default function Home() {
             <p className="text-xs text-muted-foreground">레버리지 ETF · BTC 계산기</p>
           </div>
           <div className="flex gap-1.5 bg-muted p-1 rounded-lg">
-            {(['TQQQ', 'SOXL', 'HYNIX2X', 'BTC', 'RAM'] as Symbol[]).map(s => (
+            {(['TQQQ', 'SOXL', 'HYNIX2X', 'BTC', 'RAM', 'ALL'] as const).map(s => (
               <button
                 key={s}
                 onClick={() => setSym(s)}
@@ -28,18 +30,22 @@ export default function Home() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {s}
+                {s === 'ALL' ? '전체' : s}
               </button>
             ))}
           </div>
         </div>
 
-        <QuantApp
-          key={sym}
-          sym={sym}
-          openOrders={openOrdersCache[sym] ?? null}
-          setOpenOrders={(orders) => setOpenOrdersCache(prev => ({ ...prev, [sym]: orders }))}
-        />
+        {sym === 'ALL' ? (
+          <Portfolio />
+        ) : (
+          <QuantApp
+            key={sym}
+            sym={sym}
+            openOrders={openOrdersCache[sym] ?? null}
+            setOpenOrders={(orders) => setOpenOrdersCache(prev => ({ ...prev, [sym]: orders }))}
+          />
+        )}
       </div>
     </main>
   );

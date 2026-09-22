@@ -43,3 +43,19 @@ export interface UndoSnapshot {
   state: SymbolState;
   histLen: number;
 }
+
+// 포트폴리오 비중 관리용 자산 항목
+// 평가액 계산 방식은 아래 셋 중 하나로 결정된다
+//   sym  : 앱에서 운용 중인 심볼 → 잔여자본 + 보유주식 × 현재가
+//   coin : 업비트 마켓코드(KRW-BTC 등) → 수량 × 업비트 시세
+//   usd / krw : 고정 금액 (현금성 자산)
+export interface Asset {
+  id: string;
+  name: string;
+  cat: '주식' | '코인' | '현금';
+  sym?: Symbol;
+  coin?: string;
+  qty?: number;
+  usd?: number;
+  krw?: number;
+}

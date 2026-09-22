@@ -1,4 +1,4 @@
-import type { Symbol, SymbolState, HistoryEntry, JournalEntry, UndoSnapshot } from './types';
+import type { Symbol, SymbolState, HistoryEntry, JournalEntry, UndoSnapshot, Asset } from './types';
 
 const get = <T>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
@@ -94,3 +94,13 @@ export const saveSnapshot = (sym: Symbol) => {
   if (stack.length > UNDO_LIMIT) stack.shift();
   setUndo(sym, stack);
 };
+
+// ── 포트폴리오 비중 관리 ────────────────────────────────
+// 자산 목록과 목표 비중은 심볼과 무관한 전역 값이라 sym 접미사 없이 저장한다
+export const getAssets  = (): Asset[] => get('pf_assets') ?? [];
+export const setAssets  = (a: Asset[]) => set('pf_assets', a);
+
+export type Targets = Record<Asset['cat'], number>;
+export const getTargets = (): Targets =>
+  get('pf_targets') ?? { 주식: 65, 코인: 20, 현금: 15 };
+export const setTargets = (t: Targets) => set('pf_targets', t);
