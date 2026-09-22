@@ -41,8 +41,8 @@
 | `journal_${sym}` | 매매일지 배열 (사이클별 수익 기록) |
 | `lqp_${sym}` | 마지막 쿼터매도 수익 임시 보관 — rem 재투입은 하지 않고 파킹 목표에만 자동 합산 (Supabase 동기화 없음; 전량매도로 사이클 종료 시 삭제) |
 | `park_${sym}` | 파킹 시 현금으로 남길 회차 수 (기본 4; Supabase 동기화 없음) |
-| `pf_assets` | 포트폴리오 자산 목록 (`Asset[]`) — 심볼과 무관한 전역 값 |
-| `pf_targets` | 분류별 목표 비중 (`{주식, 코인, 현금}`, 기본 65/20/15) |
+| `pf_assets` | 포트폴리오 자산 목록 (`Asset[]`) — 심볼과 무관한 전역 값; **Supabase 동기화됨** |
+| `pf_targets` | 분류별 목표 비중 (`{주식, 코인, 현금}`, 기본 65/20/15); **Supabase 동기화됨** |
 | `reinv_${sym}` | 쿼터매도 수익 재투입 여부 ('1'이면 켜짐; Supabase 동기화 없음) — 켜진 상태의 쿼터매도는 `rem += proceeds` + hist 항목에 `reinv: true` 표시, lqp 미기록; 사이클 종료 수익 계산은 `!h.reinv` 항목만 quarterProceeds에 합산. 설정 탭 토글로 켜는 순간 기존 lqp를 rem에 합산할지 confirm |
 
 ## state 주요 필드
@@ -125,6 +125,8 @@
   - `rungs`는 `nb` 전액 기준 **하나만 공유**: `m = m0+1, …, m0+rows` (`m0 = qtyFloor(nb/avgPt)`), 가격 `nb/m`, 수량 1주 — m번째 체결 = `종가 ≤ nb/m` → `m주 × 종가 ≤ nb` 보장
   - 결과: 평단가 이하 종가에서는 항상 `qtyFloor(nb/종가)` 달성, 별지점~평단 구간은 `nb/2` 한도 유지 → T +0.5 / +1 구분 그대로
   - 주문 수도 10건 → 6건으로 감소
+- **첫 진입** `showFirstLadder = isFirst && !isReverse && cur === 'USD'` — 보유 0·평단 0에 매수가만 입력된 상태. 별지점이 없으므로 기준가는 **큰수** `buyPriceNum × FIRST_BIG_MULT`(=1.15, `quant-app.tsx` 모듈 상수)이고 `locLadder(nb, firstBigPt, sym)` 재사용
+  - LOC는 종가 ≤ 지정가일 때만 체결되므로 현재가에 걸면 상승 마감 시 미체결. 큰수를 위로 올리면 `floor(nb/큰수)`로 수량이 줄지만 아래 사다리 단이 메꿔주므로 **미체결 방지와 과매수 방지가 동시에** 성립 (예: nb=$1,173.60·현재가 $130 → 큰수 $149.50 × 7주 + ÷8~÷13 각 1주; 종가 $130이면 9주 $1,170, 종가 $97이면 12주 $1,164)
 - 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label, alloc = nb)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음). `alloc`은 모달의 배정금액 표시용 — 전반전 **별지점 단만** `nb/2`를 넘기고, 평단 단·사다리 단은 `nb` 전액
 - `showLadder`/`ladder`/`ladderByeolPt`/`showHalfLadder`/`halfLad`는 모두 파생값 — 별도 state·localStorage 없음 (표시 전용)
 
@@ -161,6 +163,7 @@
 
 ## 포트폴리오 ('전체' 탭, Next.js — portfolio.tsx)
 - 심볼별 상태와 별개로 동작 — `pf_assets`(자산 목록) / `pf_targets`(목표 비중) 두 키만 사용
+- 마운트 시 로컬 값으로 먼저 렌더 → `syncFromSupabase()` 완료 후 다시 읽어 `/api/market` 1회 호출 (기기·배포본 간 공유). `app/api/kv/route.ts`의 `ALLOWED_KEYS`에 `pf_(assets|targets)`가 포함돼 있어야 POST가 통과한다
 - `Asset.cat`(`주식`/`코인`/`현금`)으로 묶어 분류별 합계·비중·목표 대비 편차를 표시; 비중 막대에 목표 위치를 세로선으로 겹쳐 그림
 - 평가액은 모두 **원화 환산** 후 비교하고, 각 금액 옆(또는 아래)에 달러 환산액을 병기
 - 자산 유형별 평가 방식

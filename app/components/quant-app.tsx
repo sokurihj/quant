@@ -15,6 +15,9 @@ import { JournalTab } from './quant-app/journal-tab';
 export type OpenOrder = { orderId: string; side: 'BUY' | 'SELL'; orderType: 'LIMIT'; timeInForce?: 'CLS'; quantity: string; price: string };
 
 // 통화별 파킹 ETF — USD는 SGOV(초단기 미국채), KRW는 TIGER KOFR금리액티브(합성, 449170)
+// 첫 매수 '큰수' 배수 — 종가가 이 위로 마감하면 미체결이므로 여유 있게 잡는다 (전략 스펙: +10~15%)
+const FIRST_BIG_MULT = 1.15;
+
 const PARK_ETF: Record<'USD' | 'KRW', { code: string; label: string }> = {
   USD: { code: 'SGOV', label: 'SGOV' },
   KRW: { code: '449170', label: 'TIGER KOFR' },
@@ -126,6 +129,12 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const halfLad = showHalfLadder
     ? halfLadder(nb, halfByeolPt, halfAvgPt, sym)
     : { byeolQty: 0, avgQty: 0, rungs: [] as { m: number; price: number }[] };
+
+  // LOC 사다리 (첫 진입) — 큰수(현재가 +15%)에 배정금액 전액, 그 아래로 1주씩
+  // 큰수를 높게 걸면 수량이 줄지만 사다리가 메꿔주므로 '미체결 방지'와 '과매수 방지'를 동시에 만족
+  const showFirstLadder = isFirst && !isReverse && cur === 'USD';
+  const firstBigPt = showFirstLadder ? buyPriceNum * FIRST_BIG_MULT : 0;
+  const firstLad = showFirstLadder ? locLadder(nb, firstBigPt, sym) : { baseQty: 0, rungs: [] as { n: number; price: number }[] };
 
   // 파킹 계산 — N회차분 매수금액만 현금으로 남기고 나머지 파킹 (USD: SGOV, KRW: TIGER KOFR)
   // 쿼터매도 수익(재투입 전)은 rem에 없지만 놀고 있는 현금이므로 파킹 목표에 포함
@@ -778,6 +787,24 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         </div>
                       ))}
                       <p className="text-xs text-muted-foreground/50">별지점만 체결 → 절반 체결(T +0.5) / 평단가까지 체결 → 전체 체결(T +1)</p>
+                    </div>
+                  )}
+                  {showFirstLadder && firstLad.rungs.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs text-muted-foreground/60">LOC 사다리 (과매수 방지) · 첫 진입</p>
+                      {firstLad.baseQty > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">큰수 {f(firstBigPt)} × {firstLad.baseQty}{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(firstBigPt, firstLad.baseQty, `큰수 LOC 매수 (${firstLad.baseQty}${conf(sym).unit})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      )}
+                      {firstLad.rungs.map(r => (
+                        <div key={r.n} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">÷{r.n} {f(r.price)} × 1{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(r.price, 1, `LOC 사다리 매수 (÷${r.n})`)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground/50">큰수는 현재가 +{Math.round((FIRST_BIG_MULT - 1) * 100)}% — 종가가 큰수 아래면 무조건 체결됩니다</p>
                     </div>
                   )}
                   <div className="flex flex-col gap-1.5">

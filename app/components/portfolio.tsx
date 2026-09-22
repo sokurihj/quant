@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Asset, Symbol } from '@/lib/types';
 import {
-  getAssets, setAssets, getTargets, setTargets, getState, type Targets,
+  getAssets, setAssets, getTargets, setTargets, getState, syncFromSupabase, type Targets,
 } from '@/lib/storage';
 import { conf } from '@/lib/calc';
 
@@ -77,11 +77,16 @@ export function Portfolio() {
   }, []);
 
   useEffect(() => {
-    const list = getAssets();
-    setAssetList(list);
+    // 로컬 값으로 먼저 그리고, Supabase 동기화가 끝나면 다시 읽는다 (기기·배포본 간 공유)
+    setAssetList(getAssets());
     setTargetList(getTargets());
     setMounted(true);
-    refresh(list);
+    syncFromSupabase().catch(() => {}).then(() => {
+      const list = getAssets();
+      setAssetList(list);
+      setTargetList(getTargets());
+      refresh(list);
+    });
   }, [refresh]);
 
   const save = (list: Asset[]) => { setAssetList(list); setAssets(list); };

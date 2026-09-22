@@ -1,7 +1,8 @@
 import { createSupabaseServer, createSupabaseAuth } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
-const ALLOWED_KEYS = /^(st|hist|undo|journal)_(TQQQ|SOXL|HYNIX2X|BTC|RAM)$/;
+// pf_assets/pf_targets는 심볼과 무관한 전역 키 (포트폴리오 탭)
+const ALLOWED_KEYS = /^(st|hist|undo|journal)_(TQQQ|SOXL|HYNIX2X|BTC|RAM)$|^pf_(assets|targets)$/;
 
 async function getUser() {
   const supabase = await createSupabaseAuth();
