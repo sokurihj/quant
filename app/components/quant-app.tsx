@@ -128,7 +128,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const halfAvgPt = showHalfLadder && s ? s.avg - conf(sym).tick : 0;
   const halfLad = showHalfLadder
     ? halfLadder(nb, halfByeolPt, halfAvgPt, sym)
-    : { byeolQty: 0, avgQty: 0, rungs: [] as { m: number; price: number }[] };
+    : { byeolQty: 0, avgQty: 0, halfRungs: [] as { n: number; price: number }[], rungs: [] as { m: number; price: number }[] };
 
   // LOC 사다리 (첫 진입) — 큰수(현재가 +15%)에 배정금액 전액, 그 아래로 1주씩
   // 큰수를 높게 걸면 수량이 줄지만 사다리가 메꿔주므로 '미체결 방지'와 '과매수 방지'를 동시에 만족
@@ -774,6 +774,12 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                           <button onClick={() => openLadderOrder(halfByeolPt, halfLad.byeolQty, `별지점 LOC 매수 (${halfLad.byeolQty}${conf(sym).unit})`, nb / 2)} className="text-xs text-primary hover:underline shrink-0">주문</button>
                         </div>
                       )}
+                      {halfLad.halfRungs.map(r => (
+                        <div key={r.n} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">½÷{r.n} {f(r.price)} × 1{conf(sym).unit}</span>
+                          <button onClick={() => openLadderOrder(r.price, 1, `LOC 사다리 매수 (½÷${r.n})`, nb / 2)} className="text-xs text-primary hover:underline shrink-0">주문</button>
+                        </div>
+                      ))}
                       {halfLad.avgQty > 0 && (
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-mono text-muted-foreground">평단가 {f(halfAvgPt)} × {halfLad.avgQty}{conf(sym).unit}</span>

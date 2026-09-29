@@ -123,11 +123,12 @@
   - **예산을 `nb/2`씩 쪼개 독립 사다리 2개를 만들면 내림(floor)이 두 번 일어나 배정액을 크게 남긴다** — 실제 사례: `nb=$749.40`, 종가 `$129.10`에서 각 `$374.70`으로 2주+2주=4주(사용 $516)에 그침. 통합이면 `floor(749.40/129.10)=5주`
   - 그래서 첫 단만 나눈다: `byeolQty = qtyFloor(nb/2 / byeolPt)` (별지점만 체결되는 T +0.5 구간의 절반 한도 준수), `avgQty = qtyFloor(nb/avgPt) − byeolQty` (평단 첫 단이 전액 기준 나머지를 흡수)
   - `rungs`는 `nb` 전액 기준 **하나만 공유**: `m = m0+1, …, m0+rows` (`m0 = qtyFloor(nb/avgPt)`), 가격 `nb/m`, 수량 1주 — m번째 체결 = `종가 ≤ nb/m` → `m주 × 종가 ≤ nb` 보장
+  - **별지점~평단 사이 `halfRungs`**: `n = byeolQty+1, …` 중 가격 `nb/2/n > avgPt`인 단마다 1주 (라벨 `½÷n`, 모달 배정 `nb/2`). 없으면 종가가 평단 바로 위일 때 별지점 수량만 체결되어 `qtyFloor(nb/2/종가)`에 못 미침 — 실제 사례: `nb=$1,191.94`, 별지점 $163.13×3, 평단 $146.96, 종가 $147 → 3주만 체결(4주 가능). `½÷4 $148.99`가 이를 메움. 이 단들은 평단 이하에서도 전부 체결되므로 `avgQty = m0 − byeolQty − halfRungs.length`로 차감
   - 결과: 평단가 이하 종가에서는 항상 `qtyFloor(nb/종가)` 달성, 별지점~평단 구간은 `nb/2` 한도 유지 → T +0.5 / +1 구분 그대로
   - 주문 수도 10건 → 6건으로 감소
 - **첫 진입** `showFirstLadder = isFirst && !isReverse && cur === 'USD'` — 보유 0·평단 0에 매수가만 입력된 상태. 별지점이 없으므로 기준가는 **큰수** `buyPriceNum × FIRST_BIG_MULT`(=1.15, `quant-app.tsx` 모듈 상수)이고 `locLadder(nb, firstBigPt, sym)` 재사용
   - LOC는 종가 ≤ 지정가일 때만 체결되므로 현재가에 걸면 상승 마감 시 미체결. 큰수를 위로 올리면 `floor(nb/큰수)`로 수량이 줄지만 아래 사다리 단이 메꿔주므로 **미체결 방지와 과매수 방지가 동시에** 성립 (예: nb=$1,173.60·현재가 $130 → 큰수 $149.50 × 7주 + ÷8~÷13 각 1주; 종가 $130이면 9주 $1,170, 종가 $97이면 12주 $1,164)
-- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label, alloc = nb)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음). `alloc`은 모달의 배정금액 표시용 — 전반전 **별지점 단만** `nb/2`를 넘기고, 평단 단·사다리 단은 `nb` 전액
+- 각 행 옆 "주문" 버튼 → `openLadderOrder(price, qty, label, alloc = nb)`이 바로 `orderDraft`에 세팅 → 기존 확인 모달 재사용 (별도 입력 없음). `alloc`은 모달의 배정금액 표시용 — 전반전 **별지점 단·`½÷n` 단만** `nb/2`를 넘기고, 평단 단·사다리 단은 `nb` 전액
 - `showLadder`/`ladder`/`ladderByeolPt`/`showHalfLadder`/`halfLad`는 모두 파생값 — 별도 state·localStorage 없음 (표시 전용)
 
 ## 미체결 주문 관리 (Next.js, 매수·매도 탭)
