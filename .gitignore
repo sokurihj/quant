@@ -11,3 +11,6 @@ tossapi/
 # 백테스트 가격 데이터 캐시
 soxl.csv
 soxl_backtest.py
+soxl_quarter_backtest.py
+soxl_full.csv
+soxl_1h_prepost.csv
