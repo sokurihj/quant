@@ -44,6 +44,7 @@
 | `pf_assets` | 포트폴리오 자산 목록 (`Asset[]`) — 심볼과 무관한 전역 값; **Supabase 동기화됨** |
 | `pf_targets` | 분류별 목표 비중 (`{주식, 코인, 현금}`, 기본 65/20/15); **Supabase 동기화됨** |
 | `reinv_${sym}` | 쿼터매도 수익 재투입 여부 ('1'이면 켜짐; Supabase 동기화 없음) — 켜진 상태의 쿼터매도는 `rem += proceeds` + hist 항목에 `reinv: true` 표시, lqp 미기록; 사이클 종료 수익 계산은 `!h.reinv` 항목만 quarterProceeds에 합산. 설정 탭 토글로 켜는 순간 기존 lqp를 rem에 합산할지 confirm |
+| `qlim_${sym}` | 쿼터매도 주문 방식 ('1'이면 별지점 지정가, 없으면 LOC; Supabase 동기화 없음) — 쿼터매도 확인 모달 토글로 변경 |
 
 ## state 주요 필드
 | 필드 | 설명 |
@@ -82,6 +83,11 @@
 - BTC는 토스증권 미지원 종목이므로 두 버튼 모두 표시하지 않음
 - HYNIX2X 등 국내 종목은 `toss.ts`의 `SYMBOL_MAP`으로 토스 종목코드로 자동 변환 (HYNIX2X→0195S0)
 
+## 쿼터매도 예상 수익 (Next.js, 매도 탭)
+- 매도 탭 상단 카드 "쿼터매도 목표가" 아래 `└ 예상 수익 (N주)` 행 — `hasPos`일 때 표시, 표시 전용
+- 수익률 = `targetPrice(bPrice) / avg − 1` (= 별%), 수익금 = `qtyFloor(shares×0.25) × (별지점 − avg) − tradeFee(quarter)` (매도 수수료만 차감; 매수 수수료는 평단에 미포함이라 반영 안 됨)
+- 후반전엔 별지점 < 평단이므로 음수(손실)로 빨갛게 표시
+
 ## 토스증권 주문 전송 (Next.js, 매수·매도 탭)
 - BTC 제외, `hasPos || isFirst` 조건일 때 주문 버튼 표시. **매수 탭 섹션**은 추가로 `openOrders !== null && openOrders.length > 0`일 때도 표시 — 포지션 없이 복귀해도 캐시된 주문 유지
   - `isFirst`: `shares === 0 && avg === 0 && buyPriceNum > 0` — 포지션 없지만 현재가 입력된 첫 진입 상태
@@ -91,7 +97,7 @@
   - KRW 심볼(HYNIX2X): 지정가 섹션만 (LOC 미지원)
   - *전반전(`T < div/2`)이고 `hasPos`인 경우에만 평단가 버튼 표시 (`isFirst`이면 평단가 버튼 없음)
   - `isFirst`일 때: 버튼 라벨 "현재가 LOC"/"현재가 지정가", 가격=`buyPriceNum`, 배정금액=`nb` 전액
-- **매도 탭**: 쿼터매도 주문 (별지점 지정가, 보유량 ¼) + 지정가매도 주문 (목표가, 보유량 − 쿼터수량)
+- **매도 탭**: 쿼터매도 주문 (별지점, 보유량 ¼ — USD는 확인 모달에서 **LOC / 지정가 토글**, 선택은 `qlim_${sym}`에 기억, 기본 LOC; 지정가는 `timeInForce` 생략 = `DAY`라 프리장부터 체결 가능하나 정규장 마감 시 자동 취소. 토글 대상 판별은 `clientOrderId`의 `-SELL-QUARTER-` — orderDraft가 그대로 API body로 전송되므로 별도 필드 추가 안 함) + 지정가매도 주문 (목표가, 보유량 − 쿼터수량)
   - 지정가매도 수량 = `shares - qtyFloor(shares * 0.25, sym)` (단순 ¾ 곱셈 시 1주 누락 방지)
 - 버튼 클릭 → `orderDraft` state에 주문 정보 저장 → 확인 모달 표시 → "주문 전송" 클릭 → `POST /api/toss/order`
 - `orderDraft` 구조: `{ label, side, orderType:'LIMIT', timeInForce?:'CLS', price, quantity, clientOrderId, maxQty, allocAmt? }`

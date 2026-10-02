@@ -73,6 +73,17 @@ export const setReinv = (sym: Symbol, on: boolean) => {
   else localStorage.removeItem(`reinv_${sym}`);
 };
 
+// 쿼터매도 주문 방식 — true면 별지점 지정가(프리장부터 체결 가능), false면 LOC (Supabase 동기화 불필요)
+export const getQuarterLimit = (sym: Symbol): boolean => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(`qlim_${sym}`) === '1';
+};
+export const setQuarterLimit = (sym: Symbol, on: boolean) => {
+  if (typeof window === 'undefined') return;
+  if (on) localStorage.setItem(`qlim_${sym}`, '1');
+  else localStorage.removeItem(`qlim_${sym}`);
+};
+
 // 현재 심볼의 로컬 데이터를 Supabase에 강제 업로드
 export const pushToSupabase = async (sym: Symbol): Promise<void> => {
   if (typeof window === 'undefined') return;

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Symbol, TabName } from '@/lib/types';
-import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees, locLadder, halfLadder } from '@/lib/calc';
-import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN, getReinv, setReinv } from '@/lib/storage';
+import { defState, bPrice, ftPrice, targetPrice, nextAmt, newAvg, revTSell, revTBuy, revSellQty, qtyFloor, shouldEnterReverse, fmt, conf, totalFees, tradeFee, locLadder, halfLadder } from '@/lib/calc';
+import { getState, setState, getHist, setHist, getJournal, setJournal, getUndo, setUndo, saveSnapshot, syncFromSupabase, pushToSupabase, getLastQP, setLastQP, getParkN, setParkN as saveParkN, getReinv, setReinv, getQuarterLimit, setQuarterLimit } from '@/lib/storage';
 import { StatusBar } from './quant-app/status-bar';
 import { TargetCards } from './quant-app/target-cards';
 import { LocGuide } from './quant-app/loc-guide';
@@ -474,7 +474,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     const price = targetPrice(bPrice(s.avg, sym, s.div, s.T), sym);
     const maxQty = qtyFloor(s.shares * 0.25, sym);
     if (maxQty <= 0) return alert('보유 수량이 너무 적습니다.');
-    const isLoc = conf(sym).currency === 'USD' && sym !== 'BTC';
+    const isLoc = conf(sym).currency === 'USD' && sym !== 'BTC' && !getQuarterLimit(sym);
     setOrderDraft({ label: '쿼터매도 주문 (¼)', side: 'SELL', orderType: 'LIMIT', ...(isLoc ? { timeInForce: 'CLS' as const } : {}), price: fmtOrderPrice(price), quantity: String(maxQty), clientOrderId: `${sym}-SELL-QUARTER-${Date.now()}`, maxQty });
   };
 
@@ -705,6 +705,10 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   ? '별지점/평단가 이하로 떨어진 날 매수 후 체결가를 입력하세요. 둘 다 닿았으면 전체 체결, 별지점만 닿았으면 절반 체결을 선택하세요.'
                   : '실제로 매수를 체결한 후, 체결 금액과 체결가를 그대로 입력하세요.'}
               </p>
+              {/* 같은 날 쿼터매도(지정가)와 LOC 매수가 모두 체결되면 기록 순서에 따라 쿼터 수량·T·평단이 달라짐 */}
+              {hasPos && sym !== 'BTC' && (
+                <p className="text-xs text-primary">같은 날 쿼터매도도 체결됐다면 ② 매도 기록을 먼저 입력한 뒤 매수를 기록하세요.</p>
+              )}
               {((hasPos || isFirst) || (openOrders !== null && openOrders.length > 0)) && sym !== 'BTC' && (
                 <div className="border-t border-border pt-3 flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">토스증권 주문 전송{isFirst ? ' — 첫 진입 (현재가 기준)' : ''}</p>
@@ -951,6 +955,21 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                   <span className="text-xs text-muted-foreground">쿼터매도 목표가</span>
                   <span className="font-mono">{hasPos ? f(targetPrice(bPrice(s.avg, sym, s.div, s.T), sym)) : '—'}</span>
                 </div>
+                {hasPos && (() => {
+                  // 쿼터 물량을 별지점에 팔았을 때 예상 수익 — 매도 수수료 차감 (후반전엔 별지점 < 평단이라 음수)
+                  const qp = targetPrice(bPrice(s.avg, sym, s.div, s.T), sym);
+                  const qq = qtyFloor(s.shares * 0.25, sym);
+                  const pnl = qq * (qp - s.avg) - tradeFee({ type: 'quarter', amount: qq * qp }, sym);
+                  const pct = (qp / s.avg - 1) * 100;
+                  return (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-xs text-muted-foreground">└ 예상 수익 ({qq}{conf(sym).unit})</span>
+                      <span className={`font-mono text-xs ${pnl >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                        {pct >= 0 ? '+' : ''}{pct.toFixed(2)}% · {pnl >= 0 ? '+' : '−'}{f(Math.abs(pnl))}
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div className="flex justify-between text-sm">
                   <span className="text-xs text-muted-foreground">지정가매도 목표가 {sym === 'HYNIX2X' ? '(전량)' : '(잔여 ¾)'}</span>
                   <span className="font-mono">{hasPos ? f(targetPrice(ftPrice(s.avg, sym), sym)) : '—'}</span>
@@ -1413,8 +1432,27 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               </div>
               <div className="flex justify-between px-4 py-2.5">
                 <span className="text-xs text-muted-foreground">주문 유형</span>
-                <span className="font-mono">{orderDraft.timeInForce === 'CLS' ? 'LOC (장 마감 지정가)' : '지정가'}</span>
+                {orderDraft.clientOrderId.includes('-SELL-QUARTER-') && conf(sym).currency === 'USD' ? (
+                  // 쿼터매도만 LOC/지정가 선택 — 선택은 심볼별로 기억
+                  <div className="flex gap-1">
+                    {([['LOC', true], ['지정가', false]] as const).map(([name, loc]) => (
+                      <button key={name}
+                        onClick={() => {
+                          setQuarterLimit(sym, !loc);
+                          setOrderDraft({ ...orderDraft, timeInForce: loc ? 'CLS' : undefined });
+                        }}
+                        className={`px-2.5 py-0.5 rounded border text-xs font-mono ${(orderDraft.timeInForce === 'CLS') === loc ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground'}`}>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="font-mono">{orderDraft.timeInForce === 'CLS' ? 'LOC (장 마감 지정가)' : '지정가'}</span>
+                )}
               </div>
+              {orderDraft.clientOrderId.includes('-SELL-QUARTER-') && conf(sym).currency === 'USD' && orderDraft.timeInForce !== 'CLS' && (
+                <p className="px-4 py-2 text-xs text-muted-foreground">프리장 시작 전에 걸기 · 정규장 마감 시 자동 취소(매일 새로 주문) · 같은 날 LOC 매수도 체결되면 매도 먼저 기록</p>
+              )}
               <div className="flex flex-col px-4 py-2 gap-1">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">수량</span>
