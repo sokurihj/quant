@@ -103,7 +103,7 @@ config.py               ← 종목별 파라미터 (SYMBOLS dict)
 - 심볼 전환 시 `<QuantApp key={sym} sym={sym} />` 로 컴포넌트 완전 리마운트
 - localStorage 변경 후 `setTick(t => t + 1)` 으로 리렌더 트리거
 - `mounted` 패턴: Supabase sync 완료 후 `setMounted(true)` → hydration 오류 방지
-- `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거; 펼치면 `JournalEntry.trades`(체결내역 배열) 표시 — 사이클 종료 시점에 저장됨, 기존 항목은 undefined
+- `JournalTab`은 내부 `useState`로 page·open·tick 상태 독립 관리; tick으로 즉시 리렌더 트리거; 월 헤더에 그 달 손익과 월 말 기준 누적 손익, 상단 "총 누적 수익" 카드에 최초 사이클 시작 자본(`journal[0].startRem`) 대비 수익률 표시(연 환산은 기간이 짧으면 부풀어 제외); 펼치면 `JournalEntry.trades`(체결내역 배열) 표시 — 사이클 종료 시점에 저장됨, 기존 항목은 undefined
 - `TradeHistory`는 `tab` prop을 받아 매수탭(buy/rbuy)·매도탭(quarter/all/rsell) 필터링; 로컬 `tick` state로 전체 삭제 즉시 반영
 - 되돌리기 스택은 `UNDO_LIMIT = 10` (storage.ts) — 초과 시 오래된 것부터 삭제
 - `lastQuarterProceeds`: 쿼터매도 직후 수익(sell × price)을 보관하는 state — 잔여자본(rem)에는 재투입하지 않고 파킹 계산(`parkAmt`/`otherParkTargets`)의 목표액에 자동 합산되는 용도로만 사용; `lqp_${sym}` localStorage 키로 영속화되므로 심볼 전환 후에도 유지됨; 전량매도(사이클 종료) 시 재설정 자본에 이미 반영되므로 0으로 초기화(`setLastQP(sym, 0)`)

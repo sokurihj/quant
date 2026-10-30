@@ -80,6 +80,13 @@ export function JournalTab({ sym }: { sym: Symbol }) {
 
   const totalProfit = journal.reduce((s, j) => s + j.profit, 0);
   const totalProfitPos = totalProfit >= 0;
+  // 최초 사이클 시작 자본 대비 수익률 (연 환산은 기간이 짧을수록 부풀어 제외)
+  const baseCapital = journal[0]?.startRem ?? 0;
+  const totalPct = baseCapital > 0 ? totalProfit / baseCapital * 100 : null;
+  // 월 말 기준 누적 수익 (journal은 시간순이라 앞에서부터 더함)
+  const cumByMonth = new Map<string, number>();
+  let cum = 0;
+  journal.forEach(j => { cum += j.profit; cumByMonth.set(parseYM(j.endDate), cum); });
 
   const s = getState(sym);
   const hasOpenPosition = !!s && s.shares > 0;
@@ -184,9 +191,16 @@ export function JournalTab({ sym }: { sym: Symbol }) {
       {/* 총 누적 수익 */}
       <div className="bg-muted/30 border border-border rounded-lg px-3 py-2.5 flex justify-between items-center">
         <span className="text-xs text-muted-foreground">총 누적 수익</span>
-        <span className={`font-mono text-sm font-semibold ${totalProfitPos ? 'text-chart-2' : 'text-destructive'}`}>
-          {totalProfitPos ? '+' : ''}{f(totalProfit)}
-        </span>
+        <div className="flex flex-col items-end">
+          <span className={`font-mono text-sm font-semibold ${totalProfitPos ? 'text-chart-2' : 'text-destructive'}`}>
+            {totalProfitPos ? '+' : ''}{f(totalProfit)}
+          </span>
+          {totalPct !== null && (
+            <span className="text-xs text-muted-foreground/60 font-mono">
+              최초 자본 {f(baseCapital)} 대비 {totalPct >= 0 ? '+' : ''}{totalPct.toFixed(2)}%
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 월별 그룹 */}
@@ -206,9 +220,14 @@ export function JournalTab({ sym }: { sym: Symbol }) {
                 <span className="text-sm font-semibold text-foreground">{group.key}</span>
                 <span className="text-xs text-muted-foreground">{group.entries.length}사이클</span>
               </div>
-              <span className={`font-mono text-sm font-semibold ${monthProfitPos ? 'text-chart-2' : 'text-destructive'}`}>
-                {monthProfitPos ? '+' : ''}{f(monthProfit)}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className={`font-mono text-sm font-semibold ${monthProfitPos ? 'text-chart-2' : 'text-destructive'}`}>
+                  {monthProfitPos ? '+' : ''}{f(monthProfit)}
+                </span>
+                <span className="text-xs text-muted-foreground/60 font-mono">
+                  누적 {(cumByMonth.get(group.key) ?? 0) >= 0 ? '+' : ''}{f(cumByMonth.get(group.key) ?? 0)}
+                </span>
+              </div>
             </button>
 
             {/* 사이클 목록 */}
