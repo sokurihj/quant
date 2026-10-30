@@ -108,7 +108,7 @@
   - 초기 수량 결정: `capRecQty(maxQty)` — `recQty`와 `maxQty` 둘 다 양수면 `Math.min(recQty, maxQty)`, 하나만 있으면 그 값, 둘 다 0이면 1주 (recQty는 매수가=현재가 기준이라 주문가 기준 안전 수량을 넘을 수 있어 캡 필요)
   - 가격이 0 이하일 때만 alert로 차단 (수량 0은 차단하지 않음)
 - 모달 한도 표시 및 경고 로직:
-  - **LOC 매수** (`timeInForce:'CLS'`): `배정금액 {allocAmt} (LOC: 종가 체결)` 표시, 초과 경고 없음 — 실제 체결가(종가)가 limit price보다 낮으므로 지정가 기준 비교는 부적절
+  - **LOC 매수** (`timeInForce:'CLS'`): `배정금액 {allocAmt} (LOC: 종가 체결)` 표시, 배정금액 초과 경고 없음 — 실제 체결가(종가)가 limit price보다 낮으므로 지정가 기준 비교는 부적절. 대신 주문가가 현재가 입력값(`buyPriceNum`) × `LOC_BUY_LIMIT_MULT`(=1.2, `quant-app.tsx` 모듈 상수)를 넘으면 "증권사에서 주문이 거부될 수 있습니다" 경고 (표시 전용, 전송은 막지 않음 — 한도는 증권사별로 다르고 현재가 미입력이면 미표시)
   - **지정가 매수**: `qty × price > allocAmt`이면 "배정금액 초과 — {qty}주 × {price} = {cost}" 경고
   - **매도**: `maxQty > 0`이면 "최대 {maxQty}{unit}" 표시, `qty > maxQty`이면 "전략 한도 초과" 경고
 - KRW 일반 주문가 포맷: `Math.floor(price / conf(sym).tick) * conf(sym).tick` (HYNIX2X tick=5 → ₩5 단위 내림)

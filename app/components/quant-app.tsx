@@ -17,6 +17,8 @@ export type OpenOrder = { orderId: string; side: 'BUY' | 'SELL'; orderType: 'LIM
 // 통화별 파킹 ETF — USD는 SGOV(초단기 미국채), KRW는 TIGER KOFR금리액티브(합성, 449170)
 // 첫 매수 '큰수' 배수 — 종가가 이 위로 마감하면 미체결이므로 여유 있게 잡는다 (전략 스펙: +10~15%)
 const FIRST_BIG_MULT = 1.15;
+// 증권사는 기준가 대비 너무 높은 LOC 매수가를 거부할 수 있음 (한도는 증권사별로 다름, 경고 전용)
+const LOC_BUY_LIMIT_MULT = 1.2;
 
 const PARK_ETF: Record<'USD' | 'KRW', { code: string; label: string }> = {
   USD: { code: 'SGOV', label: 'SGOV' },
@@ -1475,6 +1477,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                     const isLoc = orderDraft.timeInForce === 'CLS';
                     const cost = qty * price;
                     const isOver = !isLoc && qty > 0 && cost > orderDraft.allocAmt;
+                    const isTooHigh = isLoc && buyPriceNum > 0 && price > buyPriceNum * LOC_BUY_LIMIT_MULT;
                     return (
                       <>
                         <div className="flex justify-between items-center">
@@ -1486,6 +1489,11 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                         {isOver && (
                           <p className="text-xs text-destructive font-semibold">
                             배정금액 초과 — {qty}{conf(sym).unit} × {f(price)} = {f(cost)}
+                          </p>
+                        )}
+                        {isTooHigh && (
+                          <p className="text-xs text-destructive font-semibold">
+                            현재가 {f(buyPriceNum)}의 {Math.round(LOC_BUY_LIMIT_MULT * 100)}%({f(buyPriceNum * LOC_BUY_LIMIT_MULT)})를 넘어요 — 증권사에서 주문이 거부될 수 있습니다
                           </p>
                         )}
                       </>
