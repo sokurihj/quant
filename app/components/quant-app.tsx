@@ -93,6 +93,9 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   const s = mounted ? getState(sym) : null;
   const hasPos = !!s && s.avg > 0 && s.shares > 0;
   const isReverse = s?.mode === 'reverse';
+  // T +0.5(절반 체결)는 전반전에서 별지점만 체결될 때만 발생 — 후반전·첫 진입은 항상 T +1이라 토글을 숨기고 1로 고정 (BTC는 기존대로 노출)
+  const showFillType = sym === 'BTC' || (!!s && hasPos && s.T < s.div / 2);
+  const effTdelta = showFillType ? tdelta : 1.0;
   const cur = conf(sym).currency;
   const f = (n: number | null | undefined, d = 2) => fmt(n, d, cur);
   const fmtOrderPrice = (price: number) => {
@@ -106,7 +109,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
 
   // 권장 수량 계산
   const nb = s ? nextAmt(s.rem, s.div, s.T) : 0;
-  const recAmt = tdelta === 0.5 ? nb / 2 : nb;
+  const recAmt = effTdelta === 0.5 ? nb / 2 : nb;
   const buyPriceNum = parseFloat(buyPrice);
   const recQty = buyPriceNum > 0 && nb > 0 ? qtyFloor(recAmt / buyPriceNum, sym) : 0;
   // 모달 기본 수량: recQty(현재가 기준)가 maxQty(주문가 기준 안전 수량)를 넘지 않도록 캡 — 종가와 주문가 차이로 인한 과매수 방지
@@ -196,7 +199,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     s.avg    = s.shares > 0 ? newAvg(s.avg, s.shares, price, qty) : price;
     s.shares = parseFloat((s.shares + qty).toFixed(6));
     s.rem   -= amount;
-    s.T      = parseFloat((s.T + tdelta).toFixed(4));
+    s.T      = parseFloat((s.T + effTdelta).toFixed(4));
     if (s.mode === 'normal' && shouldEnterReverse(s.T, s.div)) {
       s.mode = 'reverse'; s.reverseDay = 0;
       alert(`T값(${s.T.toFixed(2)})이 ${s.div - 1}을 초과했습니다.\n리버스모드로 진입합니다.`);
@@ -207,7 +210,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     setHist(sym, hist);
     setBuyQty(''); setBuyPrice('');
     refresh();
-  }, [sym, buyQty, buyPrice, tdelta, nb, recQty, refresh]);
+  }, [sym, buyQty, buyPrice, effTdelta, nb, recQty, refresh]);
 
   const handleSell = useCallback((type: 'quarter' | 'all') => {
     const cur = getState(sym);
@@ -415,34 +418,12 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
     }
   }, [orderDraft, sym]);
 
+  // 첫 진입 전용 — 전반전·후반전 LOC 주문은 LOC 사다리 행의 '주문' 버튼(openLadderOrder)이 대신함
   const openBuyLocOrder = () => {
-    if (!s || (!hasPos && !isFirst)) return;
-    let orderPrice: number, locAmt: number, label: string;
-    if (isFirst) {
-      orderPrice = buyPriceNum;
-      locAmt = nb;
-      label = '현재가 LOC 매수';
-    } else {
-      const bpr = bPrice(s.avg, sym, s.div, s.T);
-      orderPrice = bpr - conf(sym).tick;
-      if (orderPrice <= 0) return alert('별지점 가격을 계산할 수 없습니다.');
-      const isSecHalf = s.T >= s.div / 2;
-      locAmt = isSecHalf ? nb : nb / 2;
-      label = '별지점 LOC 매수';
-    }
-    const maxQty = qtyFloor(locAmt / orderPrice, sym);
+    if (!isFirst) return;
+    const maxQty = qtyFloor(nb / buyPriceNum, sym);
     const qty = capRecQty(maxQty);
-    setOrderDraft({ label, side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(orderPrice), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${Date.now()}`, maxQty, allocAmt: locAmt });
-  };
-
-  const openAvgLocOrder = () => {
-    if (!s || !hasPos) return;
-    const avgPt = s.avg - conf(sym).tick;
-    if (avgPt <= 0) return alert('평단가를 계산할 수 없습니다.');
-    const allocAmt = nb / 2;
-    const maxQty = qtyFloor(allocAmt / avgPt, sym);
-    const qty = capRecQty(maxQty);
-    setOrderDraft({ label: '평단가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(avgPt), quantity: String(qty), clientOrderId: `${sym}-BUY-AVG-${Date.now()}`, maxQty, allocAmt });
+    setOrderDraft({ label: '현재가 LOC 매수', side: 'BUY', orderType: 'LIMIT', timeInForce: 'CLS', price: fmtOrderPrice(buyPriceNum), quantity: String(qty), clientOrderId: `${sym}-BUY-BYEOL-${Date.now()}`, maxQty, allocAmt: nb });
   };
 
   const openCustomLimitOrder = () => {
@@ -685,23 +666,25 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
               {buyPriceNum > 0 && nb > 0 && (
                 <p className="text-xs text-muted-foreground font-mono">
                   권장: {f(recAmt)}{recQty > 0 ? ` ≈ ${recQty}${conf(sym).unit}` : ' (최소 단위 미만)'}
-                  {tdelta === 0.5 ? ` · 1회매수금 ${f(nb)}의 절반` : ''}
+                  {effTdelta === 0.5 ? ` · 1회매수금 ${f(nb)}의 절반` : ''}
                 </p>
               )}
               {recQty > 0 && parseFloat(buyQty) > recQty && (
                 <p className="text-xs text-amber-500">권장 수량({recQty}{conf(sym).unit})을 초과했습니다. T값이 예상보다 빠르게 증가합니다.</p>
               )}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
-                <div className="flex gap-2">
-                  {([1.0, 0.5] as const).map(v => (
-                    <button key={v} onClick={() => setTdelta(v)}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${tdelta === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
-                      {v === 1.0 ? '전체 체결 (T +1)' : '절반 체결 (T +0.5)'}
-                    </button>
-                  ))}
+              {showFillType && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">체결 유형</p>
+                  <div className="flex gap-2">
+                    {([1.0, 0.5] as const).map(v => (
+                      <button key={v} onClick={() => setTdelta(v)}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${tdelta === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+                        {v === 1.0 ? '전체 체결 (T +1)' : '절반 체결 (T +0.5)'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {sym === 'BTC'
                   ? '별지점/평단가 이하로 떨어진 날 매수 후 체결가를 입력하세요. 둘 다 닿았으면 전체 체결, 별지점만 닿았으면 절반 체결을 선택하세요.'
@@ -743,14 +726,11 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
                           ))
                     )}
                   </div>
-                  {cur === 'USD' && (
+                  {cur === 'USD' && isFirst && (
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs text-muted-foreground/60">LOC (장 마감 지정가)</p>
                       <div className="flex gap-2">
-                        <button onClick={openBuyLocOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">{isFirst ? '현재가 LOC' : '별지점 LOC'}</button>
-                        {hasPos && s.T < s.div / 2 && (
-                          <button onClick={openAvgLocOrder} className="flex-1 border border-border text-muted-foreground py-2 rounded text-xs font-semibold hover:bg-muted/50 transition-colors">평단가 LOC</button>
-                        )}
+                        <button onClick={openBuyLocOrder} className="flex-1 border border-primary/50 text-primary py-2 rounded text-xs font-semibold hover:bg-primary/10 transition-colors">현재가 LOC</button>
                       </div>
                     </div>
                   )}

@@ -93,10 +93,11 @@
   - `isFirst`: `shares === 0 && avg === 0 && buyPriceNum > 0` — 포지션 없지만 현재가 입력된 첫 진입 상태
   - `isFirst`일 때 섹션 제목에 "— 첫 진입 (현재가 기준)" 표시
 - **매수 탭**
-  - USD 심볼(TQQQ/SOXL/RAM): LOC 섹션(별지점/현재가 LOC, 평단가 LOC*) + 지정가 섹션(별지점/현재가 지정가, 평단가 지정가*)
+  - USD 심볼(TQQQ/SOXL/RAM): LOC는 **LOC 사다리 행의 '주문' 버튼**이 담당(전반전·후반전 — 아래 'LOC 사다리' 절). 별지점/평단가 LOC 단일 버튼은 사다리와 가격·수량이 중복이라 제거됨 — 사다리가 없는 첫 진입(`isFirst`)에만 '현재가 LOC' 단일 버튼(`openBuyLocOrder`) 표시. + 지정가 섹션(별지점/현재가 지정가, 평단가 지정가*)
   - KRW 심볼(HYNIX2X): 지정가 섹션만 (LOC 미지원)
-  - *전반전(`T < div/2`)이고 `hasPos`인 경우에만 평단가 버튼 표시 (`isFirst`이면 평단가 버튼 없음)
+  - *전반전(`T < div/2`)이고 `hasPos`인 경우에만 평단가 지정가 버튼 표시 (`isFirst`이면 평단가 버튼 없음)
   - `isFirst`일 때: 버튼 라벨 "현재가 LOC"/"현재가 지정가", 가격=`buyPriceNum`, 배정금액=`nb` 전액
+  - 체결 유형 토글(전체 T+1 / 절반 T+0.5)은 `showFillType`일 때만 표시 — 전반전(`hasPos && T < div/2`) 또는 BTC. 그 외(후반전·첫 진입)는 항상 T+1이라 숨기고, 숨겨진 구간에 이전 선택(0.5)이 남지 않도록 `effTdelta = showFillType ? tdelta : 1.0`을 권장 수량·T 갱신에 사용
 - **매도 탭**: 쿼터매도 주문 (별지점, 보유량 ¼ — USD는 확인 모달에서 **LOC / 지정가 토글**, 선택은 `qlim_${sym}`에 기억, 기본 LOC; 지정가는 `timeInForce` 생략 = `DAY`라 프리장부터 체결 가능하나 정규장 마감 시 자동 취소. 토글 대상 판별은 `clientOrderId`의 `-SELL-QUARTER-` — orderDraft가 그대로 API body로 전송되므로 별도 필드 추가 안 함) + 지정가매도 주문 (목표가, 보유량 − 쿼터수량)
   - 지정가매도 수량 = `shares - qtyFloor(shares * 0.25, sym)` (단순 ¾ 곱셈 시 1주 누락 방지)
 - 버튼 클릭 → `orderDraft` state에 주문 정보 저장 → 확인 모달 표시 → "주문 전송" 클릭 → `POST /api/toss/order`
