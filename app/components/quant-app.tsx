@@ -122,7 +122,7 @@ export default function QuantApp({ sym, openOrders, setOpenOrders }: {
   // LOC 사다리 (후반전) — 별지점 단일 구조라 nb 전액을 한 사다리로
   const showLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T >= s.div / 2;
   const ladderByeolPt = showLadder && s ? bPrice(s.avg, sym, s.div, s.T) - conf(sym).tick : 0;
-  const ladder = showLadder ? locLadder(nb, ladderByeolPt, sym) : { baseQty: 0, rungs: [] as { n: number; price: number }[] };
+  const ladder = showLadder ? locLadder(nb, ladderByeolPt, sym, 10) : { baseQty: 0, rungs: [] as { n: number; price: number }[] };
 
   // LOC 사다리 (전반전) — 별지점 첫 단은 nb/2, 평단 첫 단이 nb 전액 기준 나머지를 흡수 (calc.ts halfLadder 참고)
   const showHalfLadder = hasPos && !isReverse && cur === 'USD' && !!s && s.T < s.div / 2;

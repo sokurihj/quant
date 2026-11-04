@@ -123,7 +123,7 @@
   이를 `calc.ts`의 `locLadder(B, byeolPt, sym, rows)`으로 N등분해 1주씩 걸어두면, N번째 주문(가격 `B/N`)이 체결됐다는 것 자체가 `종가 ≤ B/N`이라는 뜻이라 `N주 × 종가 ≤ B` 항상 보장됨
   - `k = qtyFloor(B/byeolPt, sym)` (기존 "구매가능" 수량과 동일 공식), `baseQty = k` (기준가 그대로 전량, 감산 없음)
   - `rungs`: `baseQty > 0`이면 `n = k+1, k+2, …, k+rows`부터, `baseQty = 0`(k=0)이면 `n = 1, 2, …, rows`부터 — 각 행 가격 `B/n`, 수량 1주 (사다리 시작가가 항상 기준가보다 낮아 기준가 도달 전 선체결되는 문제 없음)
-- **후반전** `showLadder = hasPos && !isReverse && cur === 'USD' && T ≥ div/2` — 별지점 단일 구조라 사다리 1개(`B = nb`, `rows=6` 기본)
+- **후반전** `showLadder = hasPos && !isReverse && cur === 'USD' && T ≥ div/2` — 별지점 단일 구조라 사다리 1개(`B = nb`, `rows=10` — 호출부에서 지정, `locLadder` 기본값 6은 첫 진입 사다리가 사용)
 - **전반전** `showHalfLadder = … && T < div/2` — `calc.ts`의 `halfLadder(nb, byeolPt, avgPt, sym, rows=4)` 사용
   - 기준가: `halfByeolPt = bPrice − tick`, `halfAvgPt = avg − tick`
   - **예산을 `nb/2`씩 쪼개 독립 사다리 2개를 만들면 내림(floor)이 두 번 일어나 배정액을 크게 남긴다** — 실제 사례: `nb=$749.40`, 종가 `$129.10`에서 각 `$374.70`으로 2주+2주=4주(사용 $516)에 그침. 통합이면 `floor(749.40/129.10)=5주`
